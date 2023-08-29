@@ -1,0 +1,204 @@
+name: RSP MIPS assembly
+
+variables:
+  symbol: |-
+    (?:(?:\b[A-z_.$][0-z_.$]*\b)|(?:\.[0-z_.$]+\b)|\.)
+  label: |-
+    (?:{{symbol}}:)
+  directive: |-
+    (?:\.[0-z_\.$]*\b)
+  instruction: |-
+    (?:\b[A-z_$][0-z_\.$]*\b)
+  #TODO: can I just use $?
+  line_separator: |-
+    (?:(?:\r\n)|(?:\n)|;)
+  escape_pattern: |-
+    (?:\\(?:[abfnrt\\"]|x[0-9a-fA-F]+|[0-9]{3}))
+  integer: |-
+    (?:\b(?:(?:0b[01]+)|(?:0x[0-9a-fA-F]+)|(?:0[0-7])|(?:(?:[1-9][0-9]*)|0))\b)
+  sub_expression: |-
+    (?:(?:\()(?:.*?)(?:\)))
+  infix_operator: |-
+    (?:[*/%|&^!<>+\-]|(?:<<)|(?:>>)|(?:==)|(?:<>)|(?:!=)|(?:>=)|(?:<=))
+  # Looks like a + is also accepted in contrast to the documentation.
+  prefix_operator: |-
+    (?:[~+\-])
+
+# This is not %100 correct b/c we don't care about the order of things
+# multiple commas can follow each other or you can write multiple integer
+# expressions without a comma. This is not a problem for the syntax highlighting
+# The potentially correct other version is too complicated with what textmate
+# offers. This must be close enough for most cases. This is not an assembler
+# anyway.
+
+patterns:
+- include: "#statement"
+
+repository:
+  comments:
+    patterns:
+    - name: comment.line.number-sign
+      begin: "#"
+      end: "$"
+    - name: comment.block
+      begin: "\\/\\*"
+      end: "\\*\\/"
+
+  symbol:
+    name: support.variable
+    match: >-
+      {{symbol}}
+
+  symbol_modifier:
+    match: >-
+      (%(?:lo)|(?:hi))
+    captures:
+      '1':
+        name: storage.modifier
+
+  label:
+    name: support.function.label
+    match: >-
+      {{label}}
+
+  directive:
+    name: support.function.directive
+    match: >-
+      {{directive}}
+    # TODO: add known directives for different highlights
+
+  instruction:
+    name: support.function.instruction
+    match: >-
+      {{instruction}}
+    captures:
+      '0':
+        patterns:
+          - include: "#not_impl_inst"
+
+  operand_separator:
+    match: >-
+      ,
+    captures:
+      '0':
+        name: punctuation.separator
+
+  infix_operator:
+    name: keyword.operator.infix
+    match: >-
+      (?<=(?:\b|\))\s*){{infix_operator}}
+
+  prefix_operator:
+    name: keyword.operator.prefix
+    match: >-
+      {{prefix_operator}}
+
+  escaped_character:
+    match: "{{escape_pattern}}"
+    name: constant.character.escape
+
+  string:
+    begin: |-
+      \"
+    end: |-
+      \"
+    beginCaptures:
+      '0':
+        name: punctuation.definition.string.begin
+    endCaptures:
+      '0':
+        name: punctuation.definition.string.end
+    patterns:
+    - include: "#escaped_character"
+    name: string.quoted.double
+
+  character:
+    name: string.quoted.single
+    begin: >-
+      '
+    end: >-
+      '|(?<=(\G.))
+    beginCaptures:
+      '0':
+        name: punctuation.definition.string.begin
+    endCaptures:
+      '0':
+        name: punctuation.definition.string.end
+    patterns:
+    - match: >-
+        {{escape_pattern}}|(\\')
+      name: constant.character.escape
+    # TODO: add \' as well
+    - include: "#escaped_character"
+
+  integer:
+    name: constant.numeric
+    match: |-
+      {{integer}}
+
+  argument:
+    patterns:
+    - include: "#integer"
+    - include: "#symbol"
+    - include: "#sub_expression"
+    - include: "#character"
+    - include: "#string"
+
+  # This is a made up class representing anything can be written one after
+  # the other in an instruction or an expression. This will force a best
+  # effort tokenization.
+  operand:
+    patterns:
+    - include: "#comments"
+    - include: "#argument"
+    - include: "#symbol_modifier"
+    - include: "#infix_operator"
+    - include: "#prefix_operator"
+    - include: "#operand_separator"
+
+  sub_expression:
+    begin: |-
+      \(
+    end: |-
+      \)
+    beginCaptures:
+      '0':
+        name: punctuation.paren.open
+    endCaptures:
+      '0':
+        name: punctuation.paren.close
+    patterns:
+    - include: "#operand"
+
+  not_impl_inst:
+    name: invalid.illegal
+    match: >-
+      \b(?:ldl|ldr|lwl|lwr|lwu|swl|sdl|sdr|swr|ll|lld|ldc1|ldc2|ld|sdc1|sdc2|sd|sc|scd|beql|bnel|blezl|bgtzl|bltzl|bgezl|bltzall|bgtzall|bgezall|mfhi|mthi|mflo|mtlo|daddi|daddiu|dsllv|dsrlv|dsrav|dmult|dmultu|ddiv|ddivu|dadd|daddu|dsub|dsubu|dsll|dsrl|dsra|dsll32|dsrl32|dsra32|mult|multu|div|divu|syscall|sync|bc1f|bc1t|tge|tgeu|tlt|tltu|teq|tne|tgei|tgeiu|tlti|tltiu|teqi|tnei)\b
+
+  # This is the main parsing unit. It aims at reliably finding individual
+  # statements as defined by as.
+  statement:
+    name: statement
+    begin: >-
+      (?:
+        (?:({{label}})+)|
+        (?:\b|(?=.))
+      )
+      (?:\s*({{instruction}}|{{directive}}))|(?<=;)|^
+    end: >-
+      {{line_separator}}
+    beginCaptures:
+      '1':
+        patterns:
+        - include: "#label"
+      '2':
+        patterns:
+        - include: "#instruction"
+        - include: "#directive"
+    endCaptures:
+      '0':
+        name: punctuation.terminator
+    patterns:
+    - include: "#operand"
+
+scopeName: source.mips.rsp
