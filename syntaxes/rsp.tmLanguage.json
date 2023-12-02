@@ -1,11 +1,11 @@
 {
   "name": "RSPMIPSassembly",
   "variables": {
-    "symbol": "(?:(?:\\b[A-z_.$][0-z_.$]*\\b)|(?:\\.[0-z_.$]+\\b)|\\.)",
-    "label": "(?:(?:(?:\\b[A-z_.$][0-z_.$]*\\b)|(?:\\.[0-z_.$]+\\b)|\\.):)",
-    "directive": "(?:\\.[0-z_\\.$]*\\b)",
-    "instruction": "(?:\\b[A-z_$][0-z_\\.$]*\\b)",
-    "line_separator": "(?:(?:\\r\\n)|(?:\\n)|;)",
+    "symbol": "(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.)",
+    "label": "(?:(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)",
+    "directive": "(?:\\.[0-9A-z_\\.$]*\\b)",
+    "instruction": "(?:\\b[A-z_$][0-9A-z_\\.$]*\\b)",
+    "line_separator": "(?:$|;)",
     "escape_pattern": "(?:\\\\(?:[abfnrt\\\\\"]|x[0-9a-fA-F]+|[0-9]{3}))",
     "integer": "(?:\\b(?:(?:0b[01]+)|(?:0x[0-9a-fA-F]+)|(?:0[0-7])|(?:(?:[1-9][0-9]*)|0))\\b)",
     "sub_expression": "(?:(?:\\()(?:.*?)(?:\\)))",
@@ -34,7 +34,7 @@
     },
     "symbol": {
       "name": "support.variable",
-      "match": "(?:(?:\\b[A-z_.$][0-z_.$]*\\b)|(?:\\.[0-z_.$]+\\b)|\\.)"
+      "match": "(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.)"
     },
     "symbol_modifier": {
       "match": "(%(?:lo)|(?:hi))",
@@ -46,15 +46,15 @@
     },
     "label": {
       "name": "support.function.label",
-      "match": "(?:(?:(?:\\b[A-z_.$][0-z_.$]*\\b)|(?:\\.[0-z_.$]+\\b)|\\.):)"
+      "match": "(?:(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)"
     },
     "directive": {
       "name": "support.function.directive",
-      "match": "(?:\\.[0-z_\\.$]*\\b)"
+      "match": "(?:\\.[0-9A-z_\\.$]*\\b)"
     },
     "instruction": {
       "name": "support.function.instruction",
-      "match": "(?:\\b[A-z_$][0-z_\\.$]*\\b)",
+      "match": "(?:\\b[A-z_$][0-9A-z_\\.$]*\\b)",
       "captures": {
         "0": {
           "patterns": [
@@ -108,14 +108,14 @@
     "character": {
       "name": "string.quoted.single",
       "begin": "'",
-      "end": "'|(?<=(\\G.))",
+      "end": "(')|(?<=[^'])(?:\\b)|$",
       "beginCaptures": {
         "0": {
           "name": "punctuation.definition.string.begin"
         }
       },
       "endCaptures": {
-        "0": {
+        "1": {
           "name": "punctuation.definition.string.end"
         }
       },
@@ -123,9 +123,6 @@
         {
           "match": "(?:\\\\(?:[abfnrt\\\\\"]|x[0-9a-fA-F]+|[0-9]{3}))|(\\\\')",
           "name": "constant.character.escape"
-        },
-        {
-          "include": "#escaped_character"
         }
       ]
     },
@@ -198,9 +195,8 @@
       "match": "\\b(?:ldl|ldr|lwl|lwr|lwu|swl|sdl|sdr|swr|ll|lld|ldc1|ldc2|ld|sdc1|sdc2|sd|sc|scd|beql|bnel|blezl|bgtzl|bltzl|bgezl|bltzall|bgtzall|bgezall|mfhi|mthi|mflo|mtlo|daddi|daddiu|dsllv|dsrlv|dsrav|dmult|dmultu|ddiv|ddivu|dadd|daddu|dsub|dsubu|dsll|dsrl|dsra|dsll32|dsrl32|dsra32|mult|multu|div|divu|syscall|sync|bc1f|bc1t|tge|tgeu|tlt|tltu|teq|tne|tgei|tgeiu|tlti|tltiu|teqi|tnei)\\b"
     },
     "statement": {
-      "name": "statement",
-      "begin": "(?:(?:((?:(?:(?:\\b[A-z_.$][0-z_.$]*\\b)|(?:\\.[0-z_.$]+\\b)|\\.):))+)|(?:\\b|(?=.)))(?:\\s*((?:\\b[A-z_$][0-z_\\.$]*\\b)|(?:\\.[0-z_\\.$]*\\b)))|(?<=;)|^",
-      "end": "(?:(?:\\r\\n)|(?:\\n)|;)",
+      "begin": "(?:^)(?:\\s*)((?:(?:(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)\\s*)*)(?:((?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.))?)",
+      "end": "(?:$|;)",
       "beginCaptures": {
         "1": {
           "patterns": [

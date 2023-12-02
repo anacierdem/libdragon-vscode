@@ -1,17 +1,19 @@
 name: RSP MIPS assembly
 
+# The build replaces these variables in the upcoming strings when a {{variable}}
+# is found. This is useful to avoid repetition and to make the file more readable.
+
 variables:
   symbol: |-
-    (?:(?:\b[A-z_.$][0-z_.$]*\b)|(?:\.[0-z_.$]+\b)|\.)
+    (?:(?:\b[A-z_.$][0-9A-z_.$]*\b)|(?:\.[0-9A-z_.$]+\b)|\.)
   label: |-
     (?:{{symbol}}:)
   directive: |-
-    (?:\.[0-z_\.$]*\b)
+    (?:\.[0-9A-z_\.$]*\b)
   instruction: |-
-    (?:\b[A-z_$][0-z_\.$]*\b)
-  #TODO: can I just use $?
+    (?:\b[A-z_$][0-9A-z_\.$]*\b)
   line_separator: |-
-    (?:(?:\r\n)|(?:\n)|;)
+    (?:$|;)
   escape_pattern: |-
     (?:\\(?:[abfnrt\\"]|x[0-9a-fA-F]+|[0-9]{3}))
   integer: |-
@@ -24,12 +26,19 @@ variables:
   prefix_operator: |-
     (?:[~+\-])
 
-# This is not %100 correct b/c we don't care about the order of things
-# multiple commas can follow each other or you can write multiple integer
-# expressions without a comma. This is not a problem for the syntax highlighting
-# The potentially correct other version is too complicated with what textmate
-# offers. This must be close enough for most cases. This is not an assembler
-# anyway.
+# With textmate, it is best to try to eagerly tokenize everything. This will
+# result in better highlighting. It is possible to do some parsing but it becomes
+# very complicated to maintain very quickly for very little gain. It can be even
+# worse b/c once the pattern does not match, highlighting will stop.
+# Instead if we tokeneize everything, we can parse bigger structures at a later
+# pass as necessary without loosing any information in the process.
+# To give an example, you can build patterns that will only match series of
+# operands and categorize the operators in between as infix operators. But this
+# will stop tokenization once the pattern is broken by say adding an unknown token.
+# Instead it is better to put as much as possible into the patterns array.
+# So to summarize the aim is best effort tokenization while using the context
+# information to an extent where you don't loose any tokens. See strings and
+# sub expressions for good examples.
 
 patterns:
 - include: "#statement"
@@ -94,7 +103,8 @@ repository:
       {{prefix_operator}}
 
   escaped_character:
-    match: "{{escape_pattern}}"
+    match: >-
+      {{escape_pattern}}
     name: constant.character.escape
 
   string:
@@ -109,6 +119,8 @@ repository:
       '0':
         name: punctuation.definition.string.end
     patterns:
+    # Once a pattern is matched after the begin, it will override the end match
+    # allowing easy extension of the current token
     - include: "#escaped_character"
     name: string.quoted.double
 
@@ -116,20 +128,20 @@ repository:
     name: string.quoted.single
     begin: >-
       '
+    # as allows ending the character with a ' but it is not mandatory
+    # try to consume as much as possible without leaking into the next line
     end: >-
-      '|(?<=(\G.))
+      (')|(?<=[^'])(?:\b)|$
     beginCaptures:
       '0':
         name: punctuation.definition.string.begin
     endCaptures:
-      '0':
+      '1':
         name: punctuation.definition.string.end
     patterns:
     - match: >-
         {{escape_pattern}}|(\\')
       name: constant.character.escape
-    # TODO: add \' as well
-    - include: "#escaped_character"
 
   integer:
     name: constant.numeric
@@ -152,6 +164,8 @@ repository:
     - include: "#comments"
     - include: "#argument"
     - include: "#symbol_modifier"
+    # infix operator only activates when there is an operand before it
+    # that's why I search for it first.
     - include: "#infix_operator"
     - include: "#prefix_operator"
     - include: "#operand_separator"
@@ -178,13 +192,11 @@ repository:
   # This is the main parsing unit. It aims at reliably finding individual
   # statements as defined by as.
   statement:
-    name: statement
     begin: >-
-      (?:
-        (?:({{label}})+)|
-        (?:\b|(?=.))
-      )
-      (?:\s*({{instruction}}|{{directive}}))|(?<=;)|^
+      (?:^|(?<=;))
+      (?:\s*)
+      ((?:{{label}}\s*)*)
+      (?:({{symbol}})?)
     end: >-
       {{line_separator}}
     beginCaptures:
