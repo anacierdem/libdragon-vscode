@@ -6,7 +6,7 @@ A vscode extension to simplify development with `libdragon`.
 
 ## RSP and MIPS assembly highlighting
 
-You can enable this feature by installing this extension. You may additionally need to disable other extensions targeting mips assembly files. Currently the extension can discriminate libdragon RSP files and mark unimplemented instructions. It also provides good MIPS highlighting out of the box as the language spec. is implemented as a text mate grammar to be as .
+You can enable this feature by installing this extension. You may additionally need to disable other extensions targeting mips assembly files. Currently the extension can discriminate libdragon RSP files and mark unimplemented instructions. It also provides good MIPS highlighting out of the box as the language spec. is implemented as a text mate grammar to be as accurate and useful as possilbe.
 
 # TODO:
 
