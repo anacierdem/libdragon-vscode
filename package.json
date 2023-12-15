@@ -1,8 +1,8 @@
 {
   "name": "libdragon-vscode",
-  "displayName": "libdragon-vscode",
+  "displayName": "Libdragon",
   "description": "Libdragon tools for a better development experience.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "lici",
   "icon": "logo.png",
   "engines": {
