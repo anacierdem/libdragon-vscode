@@ -5,7 +5,7 @@ name: RSP MIPS assembly
 
 variables:
   symbol: |-
-    (?:(?:[A-z_.$][0-9A-z_.$]*)|(?:\.[0-9A-z_.$]+)|\.)
+    (?:(?:\b[A-z_.][0-9A-z_.$]*\b)|(?:\$[0-9A-z_.$]*\b)|(?:\.[0-9A-z_.$]+\b)|\.)
   label: |-
     (?:{{symbol}}:)
   directive: |-

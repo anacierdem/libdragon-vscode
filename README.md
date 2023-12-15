@@ -13,7 +13,6 @@ You can enable this feature by installing this extension. You may additionally n
 - [ ] Enable semantic versioning
 - [ ] RSP MIPS assembly pipeline stall detection
 - [ ] Implement preview for libdragon sprites
-- [ ] Extend syntax highlighting to also cover regular MIPS assembly files
 - [ ] Add more descriptive highlighting for known as directives
 - [ ] Better handling of C preprocessor directives for MIPS assembly highlighting
 - [ ] Implement semantic MIPS assembly highlighting. Current version is all static
