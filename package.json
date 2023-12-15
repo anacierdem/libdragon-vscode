@@ -3,6 +3,8 @@
   "displayName": "libdragon-vscode",
   "description": "Libdragon tools for a better development experience.",
   "version": "0.0.1",
+  "publisher": "lici",
+  "icon": "logo.png",
   "engines": {
     "vscode": "^1.81.0"
   },
