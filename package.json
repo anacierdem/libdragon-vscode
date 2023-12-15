@@ -20,23 +20,40 @@
   "contributes": {
     "languages": [
       {
-        "id": "rsp",
+        "id": "mips",
+        "aliases": [
+          "MIPS assembly",
+          "mips"
+        ],
+        "filenamePatterns": [
+          "*.S",
+          "*.inc"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "mips.rsp",
         "aliases": [
           "RSP MIPS assembly",
           "rsp"
         ],
-        "extensions": [
-          "S",
-          "inc"
+        "filenamePatterns": [
+          "rsp_*.S",
+          "rsp_*.inc"
         ],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "rsp",
+        "language": "mips.rsp",
         "scopeName": "source.mips.rsp",
-        "path": "./syntaxes/rsp.tmLanguage.json"
+        "path": "./syntaxes/mips.rsp.tmLanguage.json"
+      },
+      {
+        "language": "mips",
+        "scopeName": "source.mips",
+        "path": "./syntaxes/mips.tmLanguage.json"
       }
     ]
   },

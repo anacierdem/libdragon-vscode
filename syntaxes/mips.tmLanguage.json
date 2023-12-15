@@ -1,8 +1,8 @@
 {
   "name": "RSPMIPSassembly",
   "variables": {
-    "symbol": "(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.)",
-    "label": "(?:(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)",
+    "symbol": "(?:(?:[A-z_.$][0-9A-z_.$]*)|(?:\\.[0-9A-z_.$]+)|\\.)",
+    "label": "(?:(?:(?:[A-z_.$][0-9A-z_.$]*)|(?:\\.[0-9A-z_.$]+)|\\.):)",
     "directive": "(?:\\.[0-9A-z_\\.$]*\\b)",
     "instruction": "(?:\\b[A-z_$][0-9A-z_\\.$]*\\b)",
     "line_separator": "(?:$|;)",
@@ -34,7 +34,7 @@
     },
     "symbol": {
       "name": "support.variable",
-      "match": "(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.)"
+      "match": "(?:(?:[A-z_.$][0-9A-z_.$]*)|(?:\\.[0-9A-z_.$]+)|\\.)"
     },
     "symbol_modifier": {
       "match": "(%(?:lo)|(?:hi))",
@@ -46,7 +46,7 @@
     },
     "label": {
       "name": "support.function.label",
-      "match": "(?:(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)"
+      "match": "(?:(?:(?:[A-z_.$][0-9A-z_.$]*)|(?:\\.[0-9A-z_.$]+)|\\.):)"
     },
     "directive": {
       "name": "support.function.directive",
@@ -54,16 +54,7 @@
     },
     "instruction": {
       "name": "support.function.instruction",
-      "match": "(?:\\b[A-z_$][0-9A-z_\\.$]*\\b)",
-      "captures": {
-        "0": {
-          "patterns": [
-            {
-              "include": "#not_impl_inst"
-            }
-          ]
-        }
-      }
+      "match": "(?:\\b[A-z_$][0-9A-z_\\.$]*\\b)"
     },
     "operand_separator": {
       "match": ",",
@@ -190,12 +181,8 @@
         }
       ]
     },
-    "not_impl_inst": {
-      "name": "invalid.illegal",
-      "match": "\\b(?:ldl|ldr|lwl|lwr|lwu|swl|sdl|sdr|swr|ll|lld|ldc1|ldc2|ld|sdc1|sdc2|sd|sc|scd|beql|bnel|blezl|bgtzl|bltzl|bgezl|bltzall|bgtzall|bgezall|mfhi|mthi|mflo|mtlo|daddi|daddiu|dsllv|dsrlv|dsrav|dmult|dmultu|ddiv|ddivu|dadd|daddu|dsub|dsubu|dsll|dsrl|dsra|dsll32|dsrl32|dsra32|mult|multu|div|divu|syscall|sync|bc1f|bc1t|tge|tgeu|tlt|tltu|teq|tne|tgei|tgeiu|tlti|tltiu|teqi|tnei)\\b"
-    },
     "statement": {
-      "begin": "(?:^)(?:\\s*)((?:(?:(?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)\\s*)*)(?:((?:(?:\\b[A-z_.$][0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.))?)",
+      "begin": "(?:^|(?<=;))(?:\\s*)((?:(?:(?:(?:[A-z_.$][0-9A-z_.$]*)|(?:\\.[0-9A-z_.$]+)|\\.):)\\s*)*)(?:((?:(?:[A-z_.$][0-9A-z_.$]*)|(?:\\.[0-9A-z_.$]+)|\\.))?)",
       "end": "(?:$|;)",
       "beginCaptures": {
         "1": {
@@ -228,5 +215,5 @@
       ]
     }
   },
-  "scopeName": "source.mips.rsp"
+  "scopeName": "source.mips"
 }
