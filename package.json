@@ -7,7 +7,7 @@
     "vscode": "^1.81.0"
   },
   "scripts": {
-    "build": "node --loader ts-node/esm ./build/index.ts",
+    "build": "node --loader ts-node/esm ./build/index.mts",
     "tsc": "tsc -p ./"
   },
   "categories": [
