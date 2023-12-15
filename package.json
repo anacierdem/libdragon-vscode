@@ -6,10 +6,6 @@
   "engines": {
     "vscode": "^1.81.0"
   },
-  "main": "./out/src/extension.js",
-  "activationEvents": [
-    "onStartupFinished"
-  ],
   "scripts": {
     "build": "node --loader ts-node/esm ./build/index.ts",
     "tsc": "tsc -p ./"
