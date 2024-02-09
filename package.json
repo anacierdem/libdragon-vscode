@@ -6,7 +6,9 @@
   "publisher": "lici",
   "icon": "logo.png",
   "engines": {
-    "vscode": "^1.81.0"
+    "vscode": "^1.81.0",
+    "node": ">=20",
+    "npm": ">=10"
   },
   "scripts": {
     "build": "node --loader ts-node/esm ./build/index.mts",
