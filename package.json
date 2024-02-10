@@ -105,8 +105,5 @@
       ],
       "@semantic-release/git"
     ]
-  },
-  "vsce": {
-    "pre-release": true
   }
 }

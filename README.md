@@ -10,7 +10,6 @@ You can enable this feature by installing this extension. You may additionally n
 
 # TODO:
 
-- [x] Enable semantic versioning
 - [ ] RSP MIPS assembly pipeline stall detection
 - [ ] Implement preview for libdragon sprites
 - [ ] Add more descriptive highlighting for known as directives
