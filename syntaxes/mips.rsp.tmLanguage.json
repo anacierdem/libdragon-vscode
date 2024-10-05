@@ -1,15 +1,15 @@
 {
   "name": "RSPMIPSassembly",
   "variables": {
-    "symbol": "(?:(?:\\b[A-z_.][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.)",
-    "label": "(?:(?:(?:\\b[A-z_.][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)",
+    "symbol": "(?:(?:\\b[A-z_][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.)",
+    "label": "(?:(?:(?:\\b[A-z_][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)",
     "directive": "(?:\\.[0-9A-z_\\.$]*\\b)",
     "instruction": "(?:\\b[A-z_$][0-9A-z_\\.$]*\\b)",
     "line_separator": "(?:$|;)",
     "escape_pattern": "(?:\\\\(?:[abfnrt\\\\\"]|x[0-9a-fA-F]+|[0-9]{3}))",
     "integer": "(?:\\b(?:(?:0b[01]+)|(?:0x[0-9a-fA-F]+)|(?:0[0-7])|(?:(?:[1-9][0-9]*)|0))\\b)",
     "sub_expression": "(?:(?:\\()(?:.*?)(?:\\)))",
-    "infix_operator": "(?:[*/%|&^!<>+\\-]|(?:<<)|(?:>>)|(?:==)|(?:<>)|(?:!=)|(?:>=)|(?:<=))",
+    "infix_operator": "(?:(?:<<)|(?:>>)|(?:==)|(?:<>)|(?:!=)|(?:>=)|(?:<=)|[*/%|&^!<>+\\-])",
     "prefix_operator": "(?:[~+\\-])"
   },
   "patterns": [
@@ -18,6 +18,36 @@
     }
   ],
   "repository": {
+    "define": {
+      "name": "meta.preprocessor.macro.c",
+      "begin": "#\\s*define",
+      "end": "(?:$|;)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.directive.define.c"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    },
+    "undef": {
+      "name": "meta.preprocessor.macro.c",
+      "begin": "#\\s*undef",
+      "end": "(?:$|;)",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.directive.undef.c"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    },
     "comments": {
       "patterns": [
         {
@@ -34,7 +64,7 @@
     },
     "symbol": {
       "name": "support.variable",
-      "match": "(?:(?:\\b[A-z_.][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.)"
+      "match": "(?:(?:\\b[A-z_][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.)"
     },
     "symbol_modifier": {
       "match": "(%(?:lo)|(?:hi))",
@@ -46,7 +76,7 @@
     },
     "label": {
       "name": "support.function.label",
-      "match": "(?:(?:(?:\\b[A-z_.][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)"
+      "match": "(?:(?:(?:\\b[A-z_][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)"
     },
     "directive": {
       "name": "support.function.directive",
@@ -75,7 +105,7 @@
     },
     "infix_operator": {
       "name": "keyword.operator.infix",
-      "match": "(?<=(?:\\b|\\))\\s*)(?:[*/%|&^!<>+\\-]|(?:<<)|(?:>>)|(?:==)|(?:<>)|(?:!=)|(?:>=)|(?:<=))"
+      "match": "(?<=(?:\\b|\\))\\s*)(?:(?:<<)|(?:>>)|(?:==)|(?:<>)|(?:!=)|(?:>=)|(?:<=)|[*/%|&^!<>+\\-])"
     },
     "prefix_operator": {
       "name": "keyword.operator.prefix",
@@ -130,7 +160,7 @@
       "name": "constant.numeric",
       "match": "(?:\\b(?:(?:0b[01]+)|(?:0x[0-9a-fA-F]+)|(?:0[0-7])|(?:(?:[1-9][0-9]*)|0))\\b)"
     },
-    "argument": {
+    "expression": {
       "patterns": [
         {
           "include": "#integer"
@@ -146,16 +176,6 @@
         },
         {
           "include": "#string"
-        }
-      ]
-    },
-    "operand": {
-      "patterns": [
-        {
-          "include": "#comments"
-        },
-        {
-          "include": "#argument"
         },
         {
           "include": "#symbol_modifier"
@@ -168,6 +188,16 @@
         },
         {
           "include": "#operand_separator"
+        }
+      ]
+    },
+    "expression_or_comment": {
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "include": "#expression"
         }
       ]
     },
@@ -186,7 +216,7 @@
       },
       "patterns": [
         {
-          "include": "#operand"
+          "include": "#expression_or_comment"
         }
       ]
     },
@@ -195,7 +225,7 @@
       "match": "\\b(?:ldl|ldr|lwl|lwr|lwu|swl|sdl|sdr|swr|ll|lld|ldc1|ldc2|ld|sdc1|sdc2|sd|sc|scd|beql|bnel|blezl|bgtzl|bltzl|bgezl|bltzall|bgtzall|bgezall|mfhi|mthi|mflo|mtlo|daddi|daddiu|dsllv|dsrlv|dsrav|dmult|dmultu|ddiv|ddivu|dadd|daddu|dsub|dsubu|dsll|dsrl|dsra|dsll32|dsrl32|dsra32|mult|multu|div|divu|syscall|sync|bc1f|bc1t|tge|tgeu|tlt|tltu|teq|tne|tgei|tgeiu|tlti|tltiu|teqi|tnei)\\b"
     },
     "statement": {
-      "begin": "(?:^|(?<=;))(?:\\s*)((?:(?:(?:(?:\\b[A-z_.][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)\\s*)*)(?:((?:(?:\\b[A-z_.][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.))?)",
+      "begin": "(?:^|(?<=;))(?:\\s*)((?:(?:(?:(?:\\b[A-z_][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.):)\\s*)*)(?:((?:(?:\\b[A-z_][0-9A-z_.$]*\\b)|(?:\\$[0-9A-z_.$]*\\b)|(?:\\.[0-9A-z_.$]+\\b)|\\.))?)",
       "end": "(?:$|;)",
       "beginCaptures": {
         "1": {
@@ -223,7 +253,13 @@
       },
       "patterns": [
         {
-          "include": "#operand"
+          "include": "#define"
+        },
+        {
+          "include": "#undef"
+        },
+        {
+          "include": "#expression_or_comment"
         }
       ]
     }

@@ -21,7 +21,7 @@ variables:
   sub_expression: |-
     (?:(?:\()(?:.*?)(?:\)))
   infix_operator: |-
-    (?:[*/%|&^!<>+\-]|(?:<<)|(?:>>)|(?:==)|(?:<>)|(?:!=)|(?:>=)|(?:<=))
+    (?:(?:<<)|(?:>>)|(?:==)|(?:<>)|(?:!=)|(?:>=)|(?:<=)|[*/%|&^!<>+\-])
   # Looks like a + is also accepted in contrast to the documentation.
   prefix_operator: |-
     (?:[~+\-])
@@ -44,6 +44,31 @@ patterns:
 - include: "#statement"
 
 repository:
+  define:
+    name: meta.preprocessor.macro.c
+    begin: |-
+      #\s*define
+    # TODO: it is also possible to extend this with a `\`
+    end: |-
+      {{line_separator}}
+    beginCaptures:
+      '0':
+        name: keyword.control.directive.define.c
+    patterns:
+    - include: "#expression"
+
+  undef:
+    name: meta.preprocessor.macro.c
+    begin: |-
+      #\s*undef
+    end: |-
+      {{line_separator}}
+    beginCaptures:
+      '0':
+        name: keyword.control.directive.undef.c
+    patterns:
+    - include: "#expression"
+
   comments:
     patterns:
     - name: comment.line.number-sign
@@ -148,27 +173,28 @@ repository:
     match: |-
       {{integer}}
 
-  argument:
+  # This is a made up class representing anything can be written one after
+  # the other in an instruction or an expression. This will force a best
+  # effort tokenization.
+  expression:
     patterns:
     - include: "#integer"
     - include: "#symbol"
     - include: "#sub_expression"
     - include: "#character"
     - include: "#string"
-
-  # This is a made up class representing anything can be written one after
-  # the other in an instruction or an expression. This will force a best
-  # effort tokenization.
-  operand:
-    patterns:
-    - include: "#comments"
-    - include: "#argument"
     - include: "#symbol_modifier"
     # infix operator only activates when there is an operand before it
     # that's why I search for it first.
     - include: "#infix_operator"
     - include: "#prefix_operator"
     - include: "#operand_separator"
+
+  # Allow comments in expressions
+  expression_or_comment:
+    patterns:
+    - include: "#comments"
+    - include: "#expression"
 
   sub_expression:
     begin: |-
@@ -182,7 +208,7 @@ repository:
       '0':
         name: punctuation.paren.close
     patterns:
-    - include: "#operand"
+    - include: "#expression_or_comment"
 
   not_impl_inst:
     name: invalid.illegal
@@ -211,6 +237,8 @@ repository:
       '0':
         name: punctuation.terminator
     patterns:
-    - include: "#operand"
+    - include: "#define"
+    - include: "#undef"
+    - include: "#expression_or_comment"
 
 scopeName: source.mips.rsp
