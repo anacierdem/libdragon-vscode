@@ -406,4 +406,42 @@ describe("getStalls", () => {
       new vscode.Range(3, 12, 3, 16),
     );
   });
+
+  it("should not dual issue with bnez", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        #define vtmp             $v28
+
+        #define vall1    $v01
+        #define vall2    $v02
+        #define vall3    $v03
+        #define valltmp1 $v04
+        #define valltmp2 $v05
+        #define vy1      $v06
+        #define vy2      $v07
+        #define vy3      $v08
+        #define vytmp1   $v09
+        #define vytmp2   $v10
+
+        #define vhmlupp vtmp
+
+        #define vk1     $v12
+
+        #define clip1  t3
+        #define clip2  t4
+        #define did_swap_0     t0
+
+        or clip1, clip2;                            vlt vy1, vy1, vy2;                  
+        cfc2 did_swap_0, COP2_CTRL_VCC;             vmrg vall1, vall1, vall2;
+
+        andi t1, clip1, 0x3F00;                     vxor vhmlupp, vhmlupp
+
+        bnez t1, RDPQ_Triangle_Clip;                vge vytmp2, vy1, vy3;`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 0);
+  });
 });

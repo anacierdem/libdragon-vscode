@@ -162,16 +162,25 @@ export async function activate(context: vscode.ExtensionContext) {
   ) {
     diagnosticCollection.clear();
 
-    if (editor.document.languageId !== "mips.rsp") {
+    if (
+      editor.document.languageId !== "mips.rsp" &&
+      editor.document.languageId !== "mips"
+    ) {
       stallStatusBar.hide();
-      return;
     }
     stallStatusBar.show();
 
     // TODO: stream these instead
     const result = await analyzeStalls(editor.document, grammar);
 
-    stallStatusBar.text = `${result.totalTicks} total cycles, ${result.stalledStatements.length} stalled`;
+    stallStatusBar.text =
+      editor.document.languageId === "mips.rsp"
+        ? `${result.totalTicks} total cycles, ${result.stalledStatements.length} stalled`
+        : `${result.totalTicks} total cycles`;
+
+    if (editor.document.languageId !== "mips.rsp") {
+      return;
+    }
 
     const uri = vscode.Uri.file(editor.document.fileName);
     const diags = [];

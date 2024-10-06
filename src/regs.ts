@@ -36,7 +36,19 @@ export const LOAD_STORE_OPS = ["mfc0", "mtc0", "mfc2", "mtc2", "cfc2", "ctc"];
 // ops that load from RAM, r/w register access
 export const LOAD_OPS = [...LOAD_OPS_SCALAR, ...LOAD_OPS_VECTOR];
 
-export const BRANCH_OPS = ["beq", "bne", "bgezal", "j", "jr", "jal"] as const;
+export const BRANCH_OPS = [
+  "beq",
+  "bne",
+  "bnez",
+  "bgez",
+  "bgezal",
+  "bgzt",
+  "blez",
+  "blzt",
+  "bltzal",
+  "j",
+  "jal",
+] as const;
 
 // ops that don't write to any register
 export const READ_ONLY_OPS = [...BRANCH_OPS, ...STORE_OPS, "mtc0"] as const;
@@ -94,16 +106,15 @@ export function getSourceRegs(statement: InstructionStatement) {
     return [statement.operands[0], statement.operands[1]]; // 3rd arg is the label
   }
   if (
-    ["bgez", "bgezal", "bgzt", "blez", "blzt", "bltzal"].includes(statement.op)
+    ["bgez", "bgezal", "bgzt", "blez", "blzt", "bltzal", "bnez"].includes(
+      statement.op,
+    )
   ) {
     return [statement.operands[0]];
   }
   // TODO: can do this lookup ahead of time
   if (STORE_OPS.includes(statement.op as (typeof STORE_OPS)[number])) {
     return statement.operands;
-  }
-  if (["j", "jal"].includes(statement.op)) {
-    return [statement.operands[0]];
   }
 
   if (
