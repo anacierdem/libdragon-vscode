@@ -40,6 +40,7 @@ export const BRANCH_OPS = [
   "beq",
   "bne",
   "bnez",
+  "beqz",
   "bgez",
   "bgezal",
   "bgzt",
@@ -106,9 +107,16 @@ export function getSourceRegs(statement: InstructionStatement) {
     return [statement.operands[0], statement.operands[1]]; // 3rd arg is the label
   }
   if (
-    ["bgez", "bgezal", "bgzt", "blez", "blzt", "bltzal", "bnez"].includes(
-      statement.op,
-    )
+    [
+      "bgez",
+      "bgezal",
+      "bgzt",
+      "blez",
+      "blzt",
+      "bltzal",
+      "bnez",
+      "beqz",
+    ].includes(statement.op)
   ) {
     return [statement.operands[0]];
   }
