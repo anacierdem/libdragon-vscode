@@ -192,7 +192,7 @@ export async function activate(context: vscode.ExtensionContext) {
         message =
           "Pipeline stall: " +
           stall.info.cycles +
-          " cycle stall (reading from " +
+          " cycle (reading from " +
           stall.info.operand?.name +
           ")";
       } else if (stall.info.reason === StallReason.STORE_AFTER_LOAD) {

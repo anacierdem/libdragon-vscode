@@ -10,7 +10,7 @@ You can enable this feature by installing this extension. You may additionally n
 
 # TODO:
 
-- [ ] RSP MIPS assembly pipeline stall detection
+- [x] RSP MIPS assembly pipeline stall detection
 - [ ] Implement preview for libdragon sprites
 - [ ] Add more descriptive highlighting for known as directives
 - [ ] Better handling of C preprocessor directives for MIPS assembly highlighting
