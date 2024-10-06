@@ -174,7 +174,11 @@ export function getSourceRegs(statement: InstructionStatement) {
       "vxor",
     ].includes(statement.op)
   ) {
-    if (statement.operands.length === 3 && statement.operands[2][0].isElement) {
+    // TODO: check all potential regs in the third operand
+    if (
+      statement.operands.length === 3 &&
+      statement.operands[2][0]?.isElement
+    ) {
       return [statement.operands[1]];
     }
     if (statement.operands.length === 2) {

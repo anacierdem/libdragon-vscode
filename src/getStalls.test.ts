@@ -245,4 +245,76 @@ describe("getStalls", () => {
       new vscode.Range(15, 23, 15, 30),
     );
   });
+
+  it("should create 1 cycle stall without .eN syntax for 3 operand vector inst.", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        #define v_out_l       $v01
+        #define v_out_r       $v02
+        #define v_sample_0    $v03
+        #define v_sample_1    $v04
+        #define v_sample_2    $v05
+        #define v_sample_3    $v06
+        #define v_mix_l       $v07
+        #define v_mix_r       $v08
+
+      Mix32Loop:
+        vaddc v_out_l, v_mix_l, v_mix_l.q1;                lqv v_sample_0.e0, 0x00,s0
+        vaddc v_out_r, v_mix_r, v_mix_r.q1;                lqv v_sample_1.e0, 0x10,s0
+        vaddc v_out_l, v_out_l, 3;`,
+    });
+
+    const stalls = await getStalls(document, grammar);
+    assert.strictEqual(stalls.length, 1);
+    assert.strictEqual(stalls[0].statement.op, "vaddc");
+    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
+    assert.strictEqual(stalls[0].info.cycles, 2);
+    assert.strictEqual(stalls[0].info.reg, "$v01");
+    assert.deepStrictEqual(
+      stalls[0].info.operand.range,
+      new vscode.Range(13, 23, 13, 30),
+    );
+  });
+
+  it("should create correct stall with .eN syntax shorthand vector inst.", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        vmulu $v01, $v07, $v07.q1;                lqv $v03.e0, 0x00,s0
+        vmadl $v02, $v08, $v08.q1;                lqv $v04.e0, 0x10,s0
+        vxor $v01, $v03.e1;`,
+    });
+
+    const stalls = await getStalls(document, grammar);
+    assert.strictEqual(stalls.length, 1);
+    assert.strictEqual(stalls[0].statement.op, "vxor");
+    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
+    assert.strictEqual(stalls[0].info.cycles, 2);
+    assert.strictEqual(stalls[0].info.reg, "$v01");
+    // TODO: report multiple registers at the same time
+    assert.deepStrictEqual(
+      stalls[0].info.operand.range,
+      new vscode.Range(3, 13, 3, 17),
+    );
+  });
+
+  it("should create correct stall with .eN syntax shorthand vector inst.'s second operand", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        vmrg $v01, $v07, $v07.q1;                 lqv $v03.e0, 0x00,s0
+        vmadl $v02, $v08, $v08.q1;                lqv $v04.e0, 0x10,s0
+        vmacf $v10, $v03.e1;`,
+    });
+
+    const stalls = await getStalls(document, grammar);
+    assert.strictEqual(stalls.length, 1);
+    assert.strictEqual(stalls[0].statement.op, "vmacf");
+    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
+    assert.strictEqual(stalls[0].info.cycles, 2);
+    assert.strictEqual(stalls[0].info.reg, "$v03");
+    // TODO: report multiple registers at the same time
+    assert.deepStrictEqual(
+      stalls[0].info.operand.range,
+      new vscode.Range(3, 20, 3, 27),
+    );
+  });
 });
