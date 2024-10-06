@@ -102,6 +102,7 @@ export function parseLine(
           .substring(token.startIndex, token.endIndex)
           .split(".");
         const name = nameParts[0];
+        // TODO: replace all instead
         const replacedName = currentDefines[name] ?? name;
         currentInstruction.operands[
           currentInstruction.operands.length - 1

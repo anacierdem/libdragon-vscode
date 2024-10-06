@@ -83,6 +83,16 @@ const defaultStatus = {
 };
 
 type RegName = keyof (typeof defaultStatus)["regStatus"];
+type StallInfo = {
+  reason: keyof typeof StallReason;
+  reg?: string;
+  cycles: number;
+};
+
+export const StallReason = {
+  WRITE_LATENCY: "WRITE_LATENCY",
+  STORE_AFTER_LOAD: "STORE_AFTER_LOAD",
+} as const;
 
 export const INITIAL_REG_STATUS = () => ({
   ...defaultStatus,
@@ -140,7 +150,7 @@ const isDualIssued = (
   }
 
   return (
-    lastStatement &&
+    !!lastStatement &&
     ((isVectorOp(lastStatement) && !isVectorOp(statement)) ||
       (!isVectorOp(lastStatement) && isVectorOp(statement)))
   );
@@ -156,16 +166,13 @@ export function analyze(
   status: typeof defaultStatus,
   statement: InstructionStatement,
 ) {
-  let stalled: string | null = null;
+  let stalled: StallInfo | null = null;
 
-  if (!status.dualIssued && isDualIssued(status.lastStatement, statement)) {
-    status.dualIssued = true;
-  }
+  const dualIssued = isDualIssued(status.lastStatement, statement);
 
-  if (!status.dualIssued) {
+  // Finalize the last instruction if it was dual-issued
+  if (!dualIssued) {
     tick(status);
-  } else {
-    status.dualIssued = false;
   }
 
   const targetRegs = getTargetRegs(statement);
@@ -180,10 +187,12 @@ export function analyze(
         regMatch = status.regStatus.hasOwnProperty(regName);
       }
       if (regMatch && status.regStatus[regName as RegName] > 0) {
-        stalled = `Reading from ${regName}, ${
-          status.regStatus[regName as RegName]
-        } cycles left`;
         const stallCount = status.regStatus[regName as RegName];
+        stalled = {
+          reason: StallReason.WRITE_LATENCY,
+          reg: regName,
+          cycles: stallCount,
+        };
         finalizeStall(status, stallCount);
       }
     }
@@ -210,7 +219,10 @@ export function analyze(
     )
   ) {
     if (status.loadInFlight === 0) {
-      stalled = `Store after load`;
+      stalled = {
+        reason: StallReason.STORE_AFTER_LOAD,
+        cycles: 1,
+      };
       finalizeStall(status, 1);
     }
   }
@@ -223,7 +235,13 @@ export function analyze(
     status.loadInFlight = 2;
   }
 
-  status.lastStatement = statement;
+  if (!dualIssued) {
+    status.lastStatement = statement;
+  } else {
+    // Dual issue already processed, clear the state
+    // Next instruction must not dual issue
+    status.lastStatement = null;
+  }
 
   return { stalled, status };
 }

@@ -93,6 +93,11 @@ export function getSourceRegs(statement: InstructionStatement) {
   if (["beq", "bne"].includes(statement.op)) {
     return [statement.operands[0], statement.operands[1]]; // 3rd arg is the label
   }
+  if (
+    ["bgez", "bgezal", "bgzt", "blez", "blzt", "bltzal"].includes(statement.op)
+  ) {
+    return [statement.operands[0]];
+  }
   // TODO: can do this lookup ahead of time
   if (STORE_OPS.includes(statement.op as (typeof STORE_OPS)[number])) {
     return statement.operands;

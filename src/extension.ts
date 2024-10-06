@@ -4,8 +4,8 @@ import * as fs from "fs";
 import * as path from "path";
 
 import * as vsctm from "vscode-textmate";
-import { parseLine } from "./processLine";
-import { INITIAL_REG_STATUS, analyze } from "./analyze";
+import { parseLine } from "./parseLine";
+import { INITIAL_REG_STATUS, StallReason, analyze } from "./analyze";
 
 // ts doesn't like the types if imported as a module
 // import * as oniguruma from "vscode-oniguruma";
@@ -19,13 +19,50 @@ function readFile(path: string): Promise<Buffer> {
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 
-export async function activate(context: vscode.ExtensionContext) {
-  console.log("Activating mips.rsp extension");
+export async function getStalls(
+  document: vscode.TextDocument,
+  grammar: vsctm.IGrammar,
+) {
+  let currentDefines: Record<string, string> = {
+    // This is defined by convention in libdragon
+    ra2: "sp",
+  };
+  let status = INITIAL_REG_STATUS();
 
-  diagnosticCollection =
-    vscode.languages.createDiagnosticCollection("mips.rsp");
-  context.subscriptions.push(diagnosticCollection);
+  let stallStatements = [];
+  let ruleStack = vsctm.INITIAL;
+  for (let lineIdx = 0; lineIdx < document.lineCount; lineIdx++) {
+    const line = document.lineAt(lineIdx).text;
+    const lineTokens = grammar.tokenizeLine(line, ruleStack);
 
+    const { statements, defines } = parseLine(
+      currentDefines,
+      lineIdx,
+      line,
+      lineTokens,
+    );
+    currentDefines = defines;
+
+    if (!statements.length) {
+      continue;
+    }
+
+    for (const statement of statements) {
+      const { status: newStatus, stalled } = analyze(status, statement);
+      status = newStatus;
+
+      if (stalled) {
+        stallStatements.push({ statement, info: stalled });
+      }
+    }
+
+    ruleStack = lineTokens.ruleStack;
+  }
+
+  return stallStatements;
+}
+
+export async function loadGrammar() {
   const wasmBin = fs.readFileSync(
     path.join(
       __dirname,
@@ -70,6 +107,18 @@ export async function activate(context: vscode.ExtensionContext) {
     throw new Error("Failed to load grammar");
   }
 
+  return grammar;
+}
+
+export async function activate(context: vscode.ExtensionContext) {
+  console.log("Activating mips.rsp extension");
+
+  diagnosticCollection =
+    vscode.languages.createDiagnosticCollection("mips.rsp");
+  context.subscriptions.push(diagnosticCollection);
+
+  const grammar = await loadGrammar();
+
   let activeEditor = vscode.window.activeTextEditor;
   activeEditor && handleChange(activeEditor, grammar);
 
@@ -104,59 +153,27 @@ export async function activate(context: vscode.ExtensionContext) {
     const uri = vscode.Uri.file(editor.document.fileName);
     const diags = [];
     for (const stall of stalls) {
+      let message = "";
+      if (stall.info.reason === StallReason.WRITE_LATENCY) {
+        message =
+          "Pipeline stall: " +
+          stall.info.cycles +
+          " cycle stall (reading from " +
+          stall.info.reg +
+          ")";
+      } else if (stall.info.reason === StallReason.STORE_AFTER_LOAD) {
+        message = "Pipeline stall: store after load";
+      }
       // TODO: add more information to the diagnostic
       diags.push(
         new vscode.Diagnostic(
           stall.statement.range,
-          "Pipeline stall: " + stall.reason,
+          message,
           vscode.DiagnosticSeverity.Warning,
         ),
       );
     }
     diagnosticCollection.set(uri, diags);
-  }
-
-  async function getStalls(
-    document: vscode.TextDocument,
-    grammar: vsctm.IGrammar,
-  ) {
-    let currentDefines: Record<string, string> = {
-      // This is defined by convention in libdragon
-      ra2: "sp",
-    };
-    let status = INITIAL_REG_STATUS();
-
-    let stallStatements = [];
-    let ruleStack = vsctm.INITIAL;
-    for (let lineIdx = 0; lineIdx < document.lineCount; lineIdx++) {
-      const line = document.lineAt(lineIdx).text;
-      const lineTokens = grammar.tokenizeLine(line, ruleStack);
-
-      const { statements, defines } = parseLine(
-        currentDefines,
-        lineIdx,
-        line,
-        lineTokens,
-      );
-      currentDefines = defines;
-
-      if (!statements.length) {
-        continue;
-      }
-
-      for (const statement of statements) {
-        const { status: newStatus, stalled } = analyze(status, statement);
-        status = newStatus;
-
-        if (stalled) {
-          stallStatements.push({ statement, reason: stalled });
-        }
-      }
-
-      ruleStack = lineTokens.ruleStack;
-    }
-
-    return stallStatements;
   }
 
   console.log("Activated mips.rsp extension");
