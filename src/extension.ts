@@ -159,7 +159,7 @@ export async function activate(context: vscode.ExtensionContext) {
           "Pipeline stall: " +
           stall.info.cycles +
           " cycle stall (reading from " +
-          stall.info.reg +
+          stall.info.operand?.name +
           ")";
       } else if (stall.info.reason === StallReason.STORE_AFTER_LOAD) {
         message = "Pipeline stall: store after load";
@@ -167,7 +167,9 @@ export async function activate(context: vscode.ExtensionContext) {
       // TODO: add more information to the diagnostic
       diags.push(
         new vscode.Diagnostic(
-          stall.statement.range,
+          stall.info.reason === StallReason.WRITE_LATENCY
+            ? stall.info.operand.range
+            : stall.statement.range,
           message,
           vscode.DiagnosticSeverity.Warning,
         ),

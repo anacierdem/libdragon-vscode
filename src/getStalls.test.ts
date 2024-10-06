@@ -5,7 +5,7 @@ import { getStalls, loadGrammar } from "./extension";
 import { IGrammar } from "vscode-textmate";
 import { StallReason } from "./analyze";
 
-describe("Basic stall scenarios", () => {
+describe("getStalls", () => {
   let grammar: IGrammar;
 
   before(async () => {
@@ -26,8 +26,8 @@ describe("Basic stall scenarios", () => {
     assert.strictEqual(stalls[0].info.cycles, 3);
     assert.strictEqual(stalls[0].info.reg, "$v02");
     assert.deepStrictEqual(
-      stalls[0].statement.range,
-      new vscode.Range(2, 8, 2, 11),
+      stalls[0].info.operand.range,
+      new vscode.Range(2, 18, 2, 22),
     );
   });
 
@@ -75,8 +75,8 @@ describe("Basic stall scenarios", () => {
     assert.strictEqual(stalls[0].info.cycles, 2);
     assert.strictEqual(stalls[0].info.reg, "$t0");
     assert.deepStrictEqual(
-      stalls[0].statement.range,
-      new vscode.Range(2, 8, 2, 11),
+      stalls[0].info.operand.range,
+      new vscode.Range(2, 12, 2, 14),
     );
   });
 
@@ -95,8 +95,8 @@ describe("Basic stall scenarios", () => {
     assert.strictEqual(stalls[0].info.cycles, 1);
     assert.strictEqual(stalls[0].info.reg, "$t0");
     assert.deepStrictEqual(
-      stalls[0].statement.range,
-      new vscode.Range(3, 8, 3, 11),
+      stalls[0].info.operand.range,
+      new vscode.Range(3, 16, 3, 18),
     );
   });
 
@@ -114,8 +114,8 @@ describe("Basic stall scenarios", () => {
     assert.strictEqual(stalls[0].info.cycles, 3);
     assert.strictEqual(stalls[0].info.reg, "$v00");
     assert.deepStrictEqual(
-      stalls[0].statement.range,
-      new vscode.Range(2, 8, 2, 13),
+      stalls[0].info.operand.range,
+      new vscode.Range(2, 14, 2, 18),
     );
   });
 
@@ -132,7 +132,6 @@ describe("Basic stall scenarios", () => {
     assert.strictEqual(stalls[0].statement.op, "sqv");
     assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
     assert.strictEqual(stalls[0].info.cycles, 1);
-    assert.strictEqual(stalls[0].info.reg, undefined);
     assert.deepStrictEqual(
       stalls[0].statement.range,
       new vscode.Range(3, 8, 3, 11),
@@ -152,7 +151,6 @@ describe("Basic stall scenarios", () => {
     assert.strictEqual(stalls[0].statement.op, "mtc0");
     assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
     assert.strictEqual(stalls[0].info.cycles, 1);
-    assert.strictEqual(stalls[0].info.reg, undefined);
     assert.deepStrictEqual(
       stalls[0].statement.range,
       new vscode.Range(3, 8, 3, 12),
@@ -172,7 +170,6 @@ describe("Basic stall scenarios", () => {
     assert.strictEqual(stalls[0].statement.op, "mfc0");
     assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
     assert.strictEqual(stalls[0].info.cycles, 1);
-    assert.strictEqual(stalls[0].info.reg, undefined);
     assert.deepStrictEqual(
       stalls[0].statement.range,
       new vscode.Range(3, 8, 3, 12),
@@ -192,7 +189,6 @@ describe("Basic stall scenarios", () => {
     assert.strictEqual(stalls[0].statement.op, "sw");
     assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
     assert.strictEqual(stalls[0].info.cycles, 1);
-    assert.strictEqual(stalls[0].info.reg, undefined);
     assert.deepStrictEqual(
       stalls[0].statement.range,
       new vscode.Range(3, 8, 3, 10),
@@ -212,18 +208,10 @@ describe("Basic stall scenarios", () => {
     assert.strictEqual(stalls[0].statement.op, "cfc2");
     assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
     assert.strictEqual(stalls[0].info.cycles, 1);
-    assert.strictEqual(stalls[0].info.reg, undefined);
     assert.deepStrictEqual(
       stalls[0].statement.range,
       new vscode.Range(3, 8, 3, 12),
     );
-  });
-});
-
-describe.only("Stall detection with macro expansion", () => {
-  let grammar: IGrammar;
-  before(async () => {
-    grammar = await loadGrammar();
   });
 
   it("should create 1 cycle stall for a dual issued assembly listing", async () => {
@@ -253,8 +241,8 @@ describe.only("Stall detection with macro expansion", () => {
     assert.strictEqual(stalls[0].info.cycles, 2);
     assert.strictEqual(stalls[0].info.reg, "$v01");
     assert.deepStrictEqual(
-      stalls[0].statement.range,
-      new vscode.Range(15, 8, 15, 12),
+      stalls[0].info.operand.range,
+      new vscode.Range(15, 23, 15, 30),
     );
   });
 });

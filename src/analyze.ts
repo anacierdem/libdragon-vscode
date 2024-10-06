@@ -7,7 +7,7 @@ import {
   getStallLatency,
   getTargetRegs,
 } from "./regs";
-import { InstructionStatement } from "./types";
+import { InstructionStatement, Operand } from "./types";
 
 const defaultStatus = {
   regStatus: {
@@ -83,11 +83,18 @@ const defaultStatus = {
 };
 
 type RegName = keyof (typeof defaultStatus)["regStatus"];
-type StallInfo = {
-  reason: keyof typeof StallReason;
-  reg?: string;
-  cycles: number;
-};
+
+type StallInfo =
+  | {
+      reason: typeof StallReason.WRITE_LATENCY;
+      reg: string;
+      cycles: number;
+      operand: Operand;
+    }
+  | {
+      reason: typeof StallReason.STORE_AFTER_LOAD;
+      cycles: number;
+    };
 
 export const StallReason = {
   WRITE_LATENCY: "WRITE_LATENCY",
@@ -192,6 +199,7 @@ export function analyze(
           reason: StallReason.WRITE_LATENCY,
           reg: regName,
           cycles: stallCount,
+          operand: sourceReg,
         };
         finalizeStall(status, stallCount);
       }

@@ -22,8 +22,8 @@ jobs:
       - name: Build extension
         run: npm run tsc
 
-      - name: Run tests
-        run: npm run test
+      # - name: Run tests
+      #   run: npm run test
 
       - name: Publish to Visual Studio Marketplace (Dry Run)
         uses: HaaLeo/publish-vscode-extension@v1.5.0

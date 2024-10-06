@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { ALL_OPS } from "./regs";
 
-type Operand = {
+export type Operand = {
   name: string;
   range: vscode.Range;
   isElement: boolean;

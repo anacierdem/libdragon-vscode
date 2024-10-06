@@ -13,6 +13,7 @@
   "scripts": {
     "build": "node --loader ts-node/esm ./build/index.mts",
     "tsc": "tsc -p ./",
+    "pretest": "tsc",
     "test": "vscode-test"
   },
   "categories": [
