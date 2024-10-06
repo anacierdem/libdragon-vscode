@@ -130,6 +130,12 @@ export async function activate(context: vscode.ExtensionContext) {
   let activeEditor = vscode.window.activeTextEditor;
   activeEditor && handleChange(activeEditor, grammar);
 
+  let stallStatusBar = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100,
+  );
+  context.subscriptions.push(stallStatusBar);
+
   vscode.window.onDidChangeActiveTextEditor(
     (editor) => {
       // TODO: can we get rid of this?
@@ -156,8 +162,17 @@ export async function activate(context: vscode.ExtensionContext) {
   ) {
     diagnosticCollection.clear();
 
+    if (editor.document.languageId !== "mips.rsp") {
+      stallStatusBar.hide();
+      return;
+    }
+    stallStatusBar.show();
+
     // TODO: stream these instead
     const result = await analyzeStalls(editor.document, grammar);
+
+    stallStatusBar.text = `${result.totalTicks} total cycles, ${result.stalledStatements.length} stalled`;
+
     const uri = vscode.Uri.file(editor.document.fileName);
     const diags = [];
     for (const stall of result.stalledStatements) {
