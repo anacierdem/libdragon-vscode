@@ -77,9 +77,11 @@ const defaultStatus = {
     $v30: 0,
     $v31: 0,
   },
-  lastStatement: null as InstructionStatement | null,
+  pairInstruction: null as InstructionStatement | null,
   loadInFlight: [] as number[],
   totalTicks: 0,
+  lastInstruction: null as InstructionStatement | null,
+  prevToLastInstruction: null as InstructionStatement | null,
 };
 
 type RegName = keyof (typeof defaultStatus)["regStatus"];
@@ -125,7 +127,7 @@ const isVectorOp = (statement: InstructionStatement) =>
   statement.op.startsWith("v");
 
 const isDualIssued = (
-  lastStatement: InstructionStatement | null,
+  { pairInstruction, prevToLastInstruction }: typeof defaultStatus,
   statement: InstructionStatement,
 ) => {
   // TODO: Dual-issue: hardware bug with single-lane instructions
@@ -136,7 +138,12 @@ const isDualIssued = (
   // the loop start (target of the end-loop branch) is 8-byte aligned so that you
   // don't lose the dual-issue opportunity on the first instruction.
 
-  if (BRANCH_OPS.includes(lastStatement?.op as (typeof BRANCH_OPS)[number])) {
+  if (
+    BRANCH_OPS.includes(pairInstruction?.op as (typeof BRANCH_OPS)[number]) ||
+    BRANCH_OPS.includes(
+      prevToLastInstruction?.op as (typeof BRANCH_OPS)[number],
+    )
+  ) {
     return false;
   }
 
@@ -150,7 +157,7 @@ const isDualIssued = (
     ...getTargetRegs(statement),
     ...getSourceRegs(statement),
   ].flat();
-  const written = lastStatement ? getTargetRegs(lastStatement).flat() : [];
+  const written = pairInstruction ? getTargetRegs(pairInstruction).flat() : [];
 
   if (
     readOrWritten.some(({ name }) =>
@@ -161,9 +168,9 @@ const isDualIssued = (
   }
 
   return (
-    !!lastStatement &&
-    ((isVectorOp(lastStatement) && !isVectorOp(statement)) ||
-      (!isVectorOp(lastStatement) && isVectorOp(statement)))
+    !!pairInstruction &&
+    ((isVectorOp(pairInstruction) && !isVectorOp(statement)) ||
+      (!isVectorOp(pairInstruction) && isVectorOp(statement)))
   );
 };
 
@@ -175,19 +182,19 @@ const finalizeStall = (status: typeof defaultStatus, count: number) => {
 
 export function analyze(
   status: typeof defaultStatus,
-  statement: InstructionStatement,
+  instruction: InstructionStatement,
 ) {
   let stalls: StallInfo[] = [];
 
-  const dualIssued = isDualIssued(status.lastStatement, statement);
+  const dualIssued = isDualIssued(status, instruction);
 
   // Finalize the last instruction if it was dual-issued
   if (!dualIssued) {
     tick(status);
   }
 
-  const targetRegs = getTargetRegs(statement);
-  const sourceRegs = getSourceRegs(statement);
+  const targetRegs = getTargetRegs(instruction);
+  const sourceRegs = getSourceRegs(instruction);
 
   for (const potentialSourceRegs of sourceRegs) {
     for (const sourceReg of potentialSourceRegs) {
@@ -217,7 +224,7 @@ export function analyze(
         regName = "$" + targetReg.name;
         regMatch = status.regStatus.hasOwnProperty(regName);
       }
-      const latency = getStallLatency(statement.op);
+      const latency = getStallLatency(instruction.op);
       if (regMatch) {
         status.regStatus[regName as RegName] = latency;
       }
@@ -226,7 +233,7 @@ export function analyze(
 
   if (
     [...STORE_OPS, ...LOAD_STORE_OPS].includes(
-      statement.op as (typeof STORE_OPS)[number],
+      instruction.op as (typeof STORE_OPS)[number],
     )
   ) {
     for (let i = 0; i < status.loadInFlight.length; i++) {
@@ -242,18 +249,18 @@ export function analyze(
 
   if (
     [...LOAD_OPS, ...LOAD_STORE_OPS].includes(
-      statement.op as (typeof LOAD_OPS)[number],
+      instruction.op as (typeof LOAD_OPS)[number],
     )
   ) {
     status.loadInFlight.push(2);
   }
 
   if (!dualIssued) {
-    status.lastStatement = statement;
+    status.pairInstruction = instruction;
   } else {
     // Dual issue already processed, clear the state
     // Next instruction must not dual issue
-    status.lastStatement = null;
+    status.pairInstruction = null;
   }
 
   // find stall with max cycles, not necessary as we push the longest first
@@ -271,6 +278,9 @@ export function analyze(
   const stall = stalls[0];
 
   finalizeStall(status, stall?.cycles ?? 0);
+
+  status.prevToLastInstruction = status.lastInstruction;
+  status.lastInstruction = instruction;
 
   // TODO: report secondary stalls as well
   return { stalled: stall, status };

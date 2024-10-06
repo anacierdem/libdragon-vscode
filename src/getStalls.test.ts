@@ -261,17 +261,20 @@ describe("getStalls", () => {
     );
   });
 
+  const mixerDefines = `
+    #define v_out_l       $v01
+    #define v_out_r       $v02
+    #define v_sample_0    $v03
+    #define v_sample_1    $v04
+    #define v_sample_2    $v05
+    #define v_sample_3    $v06
+    #define v_mix_l       $v07
+    #define v_mix_r       $v08`;
+
   it("should create 1 cycle stall for a dual issued assembly listing", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-        #define v_out_l       $v01
-        #define v_out_r       $v02
-        #define v_sample_0    $v03
-        #define v_sample_1    $v04
-        #define v_sample_2    $v05
-        #define v_sample_3    $v06
-        #define v_mix_l       $v07
-        #define v_mix_r       $v08
+      ${mixerDefines}
 
       Mix32Loop:
         # Mix all lanes together into the first lane       # Load next loop's samples
@@ -293,21 +296,14 @@ describe("getStalls", () => {
     assert.strictEqual(result.stalledStatements[0].info.reg, "$v01");
     assert.deepStrictEqual(
       result.stalledStatements[0].info.operand.range,
-      new vscode.Range(14, 23, 14, 30),
+      new vscode.Range(15, 23, 15, 30),
     );
   });
 
   it("should create 1 cycle stall without .eN syntax for 3 operand vector inst.", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-        #define v_out_l       $v01
-        #define v_out_r       $v02
-        #define v_sample_0    $v03
-        #define v_sample_1    $v04
-        #define v_sample_2    $v05
-        #define v_sample_3    $v06
-        #define v_mix_l       $v07
-        #define v_mix_r       $v08
+      ${mixerDefines}
 
       Mix32Loop:
         vaddc v_out_l, v_mix_l, v_mix_l.q1;                lpv v_sample_0.e0, 0x00,s0
@@ -328,7 +324,7 @@ describe("getStalls", () => {
     assert.strictEqual(result.stalledStatements[0].info.reg, "$v01");
     assert.deepStrictEqual(
       result.stalledStatements[0].info.operand.range,
-      new vscode.Range(13, 23, 13, 30),
+      new vscode.Range(14, 23, 14, 30),
     );
   });
 
@@ -407,29 +403,108 @@ describe("getStalls", () => {
     );
   });
 
+  const triDefines = `
+    #define tricmd a0
+    #define vtx1   RDPQ_TRIANGLE_VTX1   // a1
+    #define vtx2   RDPQ_TRIANGLE_VTX2   // a2
+    #define vtx3   RDPQ_TRIANGLE_VTX3   // a3
+    #define cull   v0
+
+    #define vfinal_i         $v01
+    #define vfinal_f         $v02
+    #define vdx_i            $v03
+    #define vdx_f            $v04
+    #define vde_i            $v05
+    #define vde_f            $v06
+    #define vdy_i            $v07
+    #define vdy_f            $v08
+
+    #define vattr1           $v09
+    #define vattr2           $v10
+    #define vattr3           $v11
+    #define attr1_r     vattr1.e0
+    #define attr2_r     vattr2.e0
+    #define attr3_r     vattr3.e0
+    #define attr1_s     vattr1.e4
+    #define attr2_s     vattr2.e4
+    #define attr3_s     vattr3.e4
+    #define attr1_invw  vattr1.e6
+    #define attr2_invw  vattr2.e6
+    #define attr3_invw  vattr3.e6
+    #define attr1_z     vattr1.e7
+    #define attr2_z     vattr2.e7
+    #define attr3_z     vattr3.e7
+    #define vma              $v12
+    #define vha              $v13
+
+    #define vw_i             $v07
+    #define vw_f             $v08
+
+    #define vinvw_i          $v14
+    #define vinvw_f          $v15
+
+    #define vedges_i         $v16
+    #define vedges_f         $v17
+    #define vnz_i            $v18
+    #define vnz_f            $v19
+    #define vslope_i         $v20
+    #define vslope_f         $v21
+    #define vx12_i           $v22
+    #define vx12_f           $v23
+
+    #define vhml             $v24
+    #define vfy_i            $v25
+    #define vfy_f            $v26
+
+    #define vmconst          $v27
+    #define VKM1             vmconst.e7
+    #define VKM4             vmconst.e5
+
+    #define vtmp             $v28
+    #define v__              $v29
+    #define invn_i           $v31.e4
+    #define invn_f           $v31.e5
+    #define invsh_i          $v31.e6
+    #define invsh_f          $v31.e7
+
+
+    #define vall1    $v01
+    #define vall2    $v02
+    #define vall3    $v03
+    #define valltmp1 $v04
+    #define valltmp2 $v05
+    #define vy1      $v06
+    #define vy2      $v07
+    #define vy3      $v08
+    #define vytmp1   $v09
+    #define vytmp2   $v10
+
+    #define vm      valltmp2
+    #define vl      valltmp1
+    #define hx      vhml.e0
+    #define hy      vhml.e1
+    #define mx      vm.e0
+    #define my      vm.e1
+    #define lx      vl.e0
+    #define ly      vl.e1
+    #define vhmlupp vtmp
+
+    #define vk1     $v12
+
+    #define vstall
+    #define stall
+
+    #define clip1  t3
+    #define clip2  t4
+    #define clip3  t5
+    #define did_swap_0     t0
+    #define did_swap_1     t1
+    #define did_swap_2     t2`;
+
   it("should not dual issue with bnez", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-        #define vtmp             $v28
-
-        #define vall1    $v01
-        #define vall2    $v02
-        #define vall3    $v03
-        #define valltmp1 $v04
-        #define valltmp2 $v05
-        #define vy1      $v06
-        #define vy2      $v07
-        #define vy3      $v08
-        #define vytmp1   $v09
-        #define vytmp2   $v10
-
-        #define vhmlupp vtmp
-
-        #define vk1     $v12
-
-        #define clip1  t3
-        #define clip2  t4
-        #define did_swap_0     t0
+        ${triDefines}
 
         or clip1, clip2;                            vlt vy1, vy1, vy2;                  
         cfc2 did_swap_0, COP2_CTRL_VCC;             vmrg vall1, vall1, vall2;
@@ -441,6 +516,27 @@ describe("getStalls", () => {
 
     const result = await analyzeStalls(document, grammar);
     assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 0);
+  });
+
+  it("should not dual issue in branch delay slot", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        ${triDefines}
+
+        bnez t1, RDPQ_Triangle_Clip;                vge vytmp2, vy3, vy3;
+        andi clip1, 0xFF;                           vmrg valltmp2, vdall1, vall3;
+        andi t6, 0x38;                              vlt vy1, vy1, vy3;                  
+        cfc2 did_swap_1, COP2_CTRL_VCC;             vmrg vall1, vall1, vall3;           
+
+        xori clip1, 0xFF;                           vge vy3, vytmp1, vytmp2;            
+        or tricmd, t6;                              vmrg vall3, valltmp1, valltmp2;
+        ssv vy1.e0, 6,s3;                           vlt vy2, vytmp1, vytmp2;`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 8);
 
     assert.strictEqual(result.stalledStatements.length, 0);
   });
