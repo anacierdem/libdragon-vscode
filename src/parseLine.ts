@@ -11,18 +11,18 @@ export function parseLine(
   currentDefines: Record<string, string>,
   lineIdx: number,
   line: string,
-  lineTokens: vsctm.ITokenizeLineResult,
+  tokens: vsctm.ITokenizeLineResult["tokens"],
 ): { statements: InstructionStatement[]; defines: Record<string, string> } {
   // TODO: keep state across labels
 
   let statements: InstructionStatement[] = [];
 
   let tokenIdx = 0;
-  let token = lineTokens.tokens[tokenIdx++];
+  let token = tokens[tokenIdx++];
   while (token) {
     if (token.scopes.includes("keyword.control.directive.define.c")) {
       while (token && !token.scopes.includes("support.variable")) {
-        token = lineTokens.tokens[tokenIdx++];
+        token = tokens[tokenIdx++];
       }
 
       if (!token) {
@@ -31,13 +31,13 @@ export function parseLine(
       }
 
       const alias = line.substring(token.startIndex, token.endIndex);
-      token = lineTokens.tokens[tokenIdx++];
+      token = tokens[tokenIdx++];
 
       // Find the replacement, multiple values are not supported only
       // the first one will be effective. e.g for `#define foo t1*a0
       // foo will be replaced with t1
       while (token && !token.scopes.includes("support.variable")) {
-        token = lineTokens.tokens[tokenIdx++];
+        token = tokens[tokenIdx++];
       }
 
       if (!token) {
@@ -49,13 +49,13 @@ export function parseLine(
 
       // TODO: handle multi-line defines
       currentDefines[alias] = replacement;
-      token = lineTokens.tokens[tokenIdx++];
+      token = tokens[tokenIdx++];
       continue;
     }
 
     if (token.scopes.includes("keyword.control.directive.undef.c")) {
       while (token && !token.scopes.includes("support.variable")) {
-        token = lineTokens.tokens[tokenIdx++];
+        token = tokens[tokenIdx++];
       }
 
       if (!token) {
@@ -66,12 +66,12 @@ export function parseLine(
       const alias = line.substring(token.startIndex, token.endIndex);
 
       delete currentDefines[alias];
-      token = lineTokens.tokens[tokenIdx++];
+      token = tokens[tokenIdx++];
       continue;
     }
 
     if (!token.scopes.includes("support.function.instruction")) {
-      token = lineTokens.tokens[tokenIdx++];
+      token = tokens[tokenIdx++];
       continue;
     }
 
@@ -79,7 +79,7 @@ export function parseLine(
 
     // TODO: This maybe a custom macro, we currently don't support those
     // if (!ALL_OPS.includes(op as typeof ALL_OPS[number])) {
-    //     token = lineTokens.tokens[tokenIdx++];
+    //     token = tokens[tokenIdx++];
     //     continue;
     // }
 
@@ -116,19 +116,19 @@ export function parseLine(
           ),
           isElement: nameParts.length > 1,
         });
-        token = lineTokens.tokens[tokenIdx++];
+        token = tokens[tokenIdx++];
         continue;
       }
 
       if (token.scopes.includes("punctuation.separator")) {
         currentInstruction.operands.push([]);
-        token = lineTokens.tokens[tokenIdx++];
+        token = tokens[tokenIdx++];
         continue;
       }
 
-      token = lineTokens.tokens[tokenIdx++];
+      token = tokens[tokenIdx++];
     }
-    token = lineTokens.tokens[tokenIdx++];
+    token = tokens[tokenIdx++];
   }
   return { statements, defines: currentDefines };
 }

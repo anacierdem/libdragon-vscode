@@ -38,13 +38,17 @@ export async function analyzeStalls(
   let ruleStack = vsctm.INITIAL;
   for (let lineIdx = 0; lineIdx < document.lineCount; lineIdx++) {
     const line = document.lineAt(lineIdx).text;
-    const lineTokens = grammar.tokenizeLine(line, ruleStack);
+    const { ruleStack: newRuleStack, tokens } = grammar.tokenizeLine(
+      line,
+      ruleStack,
+    );
+    ruleStack = newRuleStack;
 
     const { statements, defines } = parseLine(
       currentDefines,
       lineIdx,
       line,
-      lineTokens,
+      tokens,
     );
     currentDefines = defines;
 
@@ -63,8 +67,6 @@ export async function analyzeStalls(
         stalledStatements.push({ statement, info: stalled });
       }
     }
-
-    ruleStack = lineTokens.ruleStack;
   }
 
   return { stalledStatements, totalTicks: status.totalTicks };
@@ -92,6 +94,7 @@ export async function loadGrammar() {
   // re-parse the file here again. Also see https://github.com/microsoft/vscode/issues/580
   // I was not able to make vscode.provideDocumentSemanticTokensLegend work
   // not sure if it would be helpful anyway
+  // TODO: add this to disposables
   const registry = new vsctm.Registry({
     onigLib: vscodeOnigurumaLib,
     loadGrammar: (scopeName: string) => {
@@ -104,7 +107,6 @@ export async function loadGrammar() {
           vsctm.parseRawGrammar(data.toString(), filename),
         );
       }
-      console.log(`Unknown scope name: ${scopeName}`);
       return Promise.resolve(null);
     },
   });
