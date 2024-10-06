@@ -78,8 +78,8 @@ const defaultStatus = {
     $v31: 0,
   },
   lastStatement: null as InstructionStatement | null,
-  dualIssued: false,
-  loadInFlight: -1,
+  loadInFlight: [] as number[],
+  totalTicks: 0,
 };
 
 type RegName = keyof (typeof defaultStatus)["regStatus"];
@@ -101,10 +101,7 @@ export const StallReason = {
   STORE_AFTER_LOAD: "STORE_AFTER_LOAD",
 } as const;
 
-export const INITIAL_REG_STATUS = () => ({
-  ...defaultStatus,
-  regStatus: { ...defaultStatus.regStatus },
-});
+export const INITIAL_REG_STATUS = () => structuredClone(defaultStatus);
 
 const tick = (status: typeof defaultStatus) => {
   // Decrease the stall counter for all registers
@@ -114,7 +111,14 @@ const tick = (status: typeof defaultStatus) => {
       status.regStatus[reg as RegName] - 1,
     );
   }
-  status.loadInFlight--;
+  for (let i = 0; i < status.loadInFlight.length; i++) {
+    status.loadInFlight[i]--;
+    if (status.loadInFlight[i] === -1) {
+      status.loadInFlight.splice(i, 1);
+      i--;
+    }
+  }
+  status.totalTicks++;
 };
 
 const isVectorOp = (statement: InstructionStatement) =>
@@ -173,7 +177,7 @@ export function analyze(
   status: typeof defaultStatus,
   statement: InstructionStatement,
 ) {
-  let stalled: StallInfo | null = null;
+  let stalls: StallInfo[] = [];
 
   const dualIssued = isDualIssued(status.lastStatement, statement);
 
@@ -195,13 +199,12 @@ export function analyze(
       }
       if (regMatch && status.regStatus[regName as RegName] > 0) {
         const stallCount = status.regStatus[regName as RegName];
-        stalled = {
+        stalls.push({
           reason: StallReason.WRITE_LATENCY,
           reg: regName,
           cycles: stallCount,
           operand: sourceReg,
-        };
-        finalizeStall(status, stallCount);
+        });
       }
     }
   }
@@ -226,12 +229,14 @@ export function analyze(
       statement.op as (typeof STORE_OPS)[number],
     )
   ) {
-    if (status.loadInFlight === 0) {
-      stalled = {
-        reason: StallReason.STORE_AFTER_LOAD,
-        cycles: 1,
-      };
-      finalizeStall(status, 1);
+    for (let i = 0; i < status.loadInFlight.length; i++) {
+      if (status.loadInFlight[i] === 0) {
+        stalls.push({
+          reason: StallReason.STORE_AFTER_LOAD,
+          cycles: 1,
+        });
+        break;
+      }
     }
   }
 
@@ -240,7 +245,7 @@ export function analyze(
       statement.op as (typeof LOAD_OPS)[number],
     )
   ) {
-    status.loadInFlight = 2;
+    status.loadInFlight.push(2);
   }
 
   if (!dualIssued) {
@@ -251,5 +256,22 @@ export function analyze(
     status.lastStatement = null;
   }
 
-  return { stalled, status };
+  // find stall with max cycles, not necessary as we push the longest first
+  // Here for reference only.
+  // const { stall } = stalls.reduce<{ max: number; stall: null | StallInfo }>(
+  //   (acc, curr) => {
+  //     if (curr.cycles > acc.max) {
+  //       return { max: curr.cycles, stall: curr };
+  //     }
+  //     return acc;
+  //   },
+  //   { max: 0, stall: null },
+  // );
+
+  const stall = stalls[0];
+
+  finalizeStall(status, stall?.cycles ?? 0);
+
+  // TODO: report secondary stalls as well
+  return { stalled: stall, status };
 }

@@ -5,7 +5,11 @@ import * as path from "path";
 
 import * as vsctm from "vscode-textmate";
 import { parseLine } from "./parseLine";
-import { INITIAL_REG_STATUS, StallReason, analyze } from "./analyze";
+import {
+  INITIAL_REG_STATUS as INITIAL_STATUS,
+  StallReason,
+  analyze as analyzeStatement,
+} from "./analyze";
 
 // ts doesn't like the types if imported as a module
 // import * as oniguruma from "vscode-oniguruma";
@@ -19,7 +23,7 @@ function readFile(path: string): Promise<Buffer> {
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 
-export async function getStalls(
+export async function analyzeStalls(
   document: vscode.TextDocument,
   grammar: vsctm.IGrammar,
 ) {
@@ -27,9 +31,10 @@ export async function getStalls(
     // This is defined by convention in libdragon
     ra2: "sp",
   };
-  let status = INITIAL_REG_STATUS();
+  let status = INITIAL_STATUS();
 
-  let stallStatements = [];
+  let stalledStatements = [];
+
   let ruleStack = vsctm.INITIAL;
   for (let lineIdx = 0; lineIdx < document.lineCount; lineIdx++) {
     const line = document.lineAt(lineIdx).text;
@@ -48,18 +53,21 @@ export async function getStalls(
     }
 
     for (const statement of statements) {
-      const { status: newStatus, stalled } = analyze(status, statement);
+      const { status: newStatus, stalled } = analyzeStatement(
+        status,
+        statement,
+      );
       status = newStatus;
 
       if (stalled) {
-        stallStatements.push({ statement, info: stalled });
+        stalledStatements.push({ statement, info: stalled });
       }
     }
 
     ruleStack = lineTokens.ruleStack;
   }
 
-  return stallStatements;
+  return { stalledStatements, totalTicks: status.totalTicks };
 }
 
 export async function loadGrammar() {
@@ -149,10 +157,10 @@ export async function activate(context: vscode.ExtensionContext) {
     diagnosticCollection.clear();
 
     // TODO: stream these instead
-    const stalls = await getStalls(editor.document, grammar);
+    const result = await analyzeStalls(editor.document, grammar);
     const uri = vscode.Uri.file(editor.document.fileName);
     const diags = [];
-    for (const stall of stalls) {
+    for (const stall of result.stalledStatements) {
       let message = "";
       if (stall.info.reason === StallReason.WRITE_LATENCY) {
         message =

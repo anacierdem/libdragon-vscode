@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
 
-import { getStalls, loadGrammar } from "./extension";
+import { analyzeStalls, loadGrammar } from "./extension";
 import { IGrammar } from "vscode-textmate";
 import { StallReason } from "./analyze";
 
@@ -19,14 +19,18 @@ describe("getStalls", () => {
         vlt $v02, $v02, $v12     # Reads from $v02 => STALL (3 cycles)`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "vlt");
-    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
-    assert.strictEqual(stalls[0].info.cycles, 3);
-    assert.strictEqual(stalls[0].info.reg, "$v02");
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vlt");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 3);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v02");
     assert.deepStrictEqual(
-      stalls[0].info.operand.range,
+      result.stalledStatements[0].info.operand.range,
       new vscode.Range(2, 18, 2, 22),
     );
   });
@@ -41,8 +45,9 @@ describe("getStalls", () => {
         vlt $v02, $v02, $v12 # Reads from $v02 => NO STALL (it's on the 4th cycle after vsubc)`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 0);
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+    assert.strictEqual(result.stalledStatements.length, 0);
   });
 
   it("should not create stalls for a properly delayed vector inst. with dual issue", async () => {
@@ -57,8 +62,10 @@ describe("getStalls", () => {
         vlt $v02, $v02, $v12 # Reads from $v02 => NO STALL (it's on the 4th cycle after vsubc)`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 0);
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 0);
   });
 
   it("should create correct stall for a shorthand SU inst. reading a loaded value", async () => {
@@ -68,14 +75,19 @@ describe("getStalls", () => {
         sll t0, 2       # Reads from t0 => STALL (2 cycles)`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "sll");
-    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
-    assert.strictEqual(stalls[0].info.cycles, 2);
-    assert.strictEqual(stalls[0].info.reg, "$t0");
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 4);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "sll");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$t0");
     assert.deepStrictEqual(
-      stalls[0].info.operand.range,
+      result.stalledStatements[0].info.operand.range,
       new vscode.Range(2, 12, 2, 14),
     );
   });
@@ -88,14 +100,19 @@ describe("getStalls", () => {
         sub t1, t0, 2   # Reads from t0 => STALL (1 cycle)`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "sub");
-    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
-    assert.strictEqual(stalls[0].info.cycles, 1);
-    assert.strictEqual(stalls[0].info.reg, "$t0");
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 4);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "sub");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 1);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$t0");
     assert.deepStrictEqual(
-      stalls[0].info.operand.range,
+      result.stalledStatements[0].info.operand.range,
       new vscode.Range(3, 16, 3, 18),
     );
   });
@@ -107,14 +124,19 @@ describe("getStalls", () => {
         vaddc $v00, $v01     # Reads from $v00 => STALL (3 cycles)`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "vaddc");
-    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
-    assert.strictEqual(stalls[0].info.cycles, 3);
-    assert.strictEqual(stalls[0].info.reg, "$v00");
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vaddc");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 3);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v00");
     assert.deepStrictEqual(
-      stalls[0].info.operand.range,
+      result.stalledStatements[0].info.operand.range,
       new vscode.Range(2, 14, 2, 18),
     );
   });
@@ -127,13 +149,18 @@ describe("getStalls", () => {
         sqv $v04, 0(s1)    # STALL: write happening two cycles after load`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "sqv");
-    assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
-    assert.strictEqual(stalls[0].info.cycles, 1);
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 4);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "sqv");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.STORE_AFTER_LOAD,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 1);
     assert.deepStrictEqual(
-      stalls[0].statement.range,
+      result.stalledStatements[0].statement.range,
       new vscode.Range(3, 8, 3, 11),
     );
   });
@@ -146,13 +173,18 @@ describe("getStalls", () => {
         mtc0 v0, COP0_SP_STATUS     # STALL: mtc0 happening two cycles after load`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "mtc0");
-    assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
-    assert.strictEqual(stalls[0].info.cycles, 1);
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 4);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "mtc0");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.STORE_AFTER_LOAD,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 1);
     assert.deepStrictEqual(
-      stalls[0].statement.range,
+      result.stalledStatements[0].statement.range,
       new vscode.Range(3, 8, 3, 12),
     );
   });
@@ -165,13 +197,18 @@ describe("getStalls", () => {
         mfc0 v0, COP0_SP_STATUS     # STALL: mtc0 happening two cycles after load`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "mfc0");
-    assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
-    assert.strictEqual(stalls[0].info.cycles, 1);
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 4);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "mfc0");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.STORE_AFTER_LOAD,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 1);
     assert.deepStrictEqual(
-      stalls[0].statement.range,
+      result.stalledStatements[0].statement.range,
       new vscode.Range(3, 8, 3, 12),
     );
   });
@@ -184,13 +221,18 @@ describe("getStalls", () => {
         sw t8, 4(s1)                # STALL: "sw" happening two cycles after "mtc2"`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "sw");
-    assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
-    assert.strictEqual(stalls[0].info.cycles, 1);
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 4);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "sw");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.STORE_AFTER_LOAD,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 1);
     assert.deepStrictEqual(
-      stalls[0].statement.range,
+      result.stalledStatements[0].statement.range,
       new vscode.Range(3, 8, 3, 10),
     );
   });
@@ -203,13 +245,18 @@ describe("getStalls", () => {
         cfc2 v0, COP2_VCC           # STALL: cfc2 happening two cycles after mtc2`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "cfc2");
-    assert.strictEqual(stalls[0].info.reason, StallReason.STORE_AFTER_LOAD);
-    assert.strictEqual(stalls[0].info.cycles, 1);
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 4);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "cfc2");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.STORE_AFTER_LOAD,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 1);
     assert.deepStrictEqual(
-      stalls[0].statement.range,
+      result.stalledStatements[0].statement.range,
       new vscode.Range(3, 8, 3, 12),
     );
   });
@@ -229,20 +276,24 @@ describe("getStalls", () => {
       Mix32Loop:
         # Mix all lanes together into the first lane       # Load next loop's samples
         vaddc v_out_l, v_mix_l, v_mix_l.q1;                lqv v_sample_0.e0, 0x00,s0
-        vaddc v_out_r, v_mix_r, v_mix_r.q1;                lqv v_sample_1.e0, 0x10,s0
-          # 1 cycle stall here
+        vaddc v_out_r, v_mix_r, v_mix_r.q1;                lsv v_sample_1.e0, 0x10,s0
         vaddc v_out_l, v_out_l, v_out_l.h2;                lqv v_sample_2.e0, 0x20,s0`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "vaddc");
-    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
-    assert.strictEqual(stalls[0].info.cycles, 2);
-    assert.strictEqual(stalls[0].info.reg, "$v01");
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vaddc");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v01");
     assert.deepStrictEqual(
-      stalls[0].info.operand.range,
-      new vscode.Range(15, 23, 15, 30),
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(14, 23, 14, 30),
     );
   });
 
@@ -259,19 +310,24 @@ describe("getStalls", () => {
         #define v_mix_r       $v08
 
       Mix32Loop:
-        vaddc v_out_l, v_mix_l, v_mix_l.q1;                lqv v_sample_0.e0, 0x00,s0
-        vaddc v_out_r, v_mix_r, v_mix_r.q1;                lqv v_sample_1.e0, 0x10,s0
+        vaddc v_out_l, v_mix_l, v_mix_l.q1;                lpv v_sample_0.e0, 0x00,s0
+        vaddc v_out_r, v_mix_r, v_mix_r.q1;                luv v_sample_1.e0, 0x10,s0
         vaddc v_out_l, v_out_l, 3;`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "vaddc");
-    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
-    assert.strictEqual(stalls[0].info.cycles, 2);
-    assert.strictEqual(stalls[0].info.reg, "$v01");
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vaddc");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v01");
     assert.deepStrictEqual(
-      stalls[0].info.operand.range,
+      result.stalledStatements[0].info.operand.range,
       new vscode.Range(13, 23, 13, 30),
     );
   });
@@ -280,19 +336,23 @@ describe("getStalls", () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
         vmulu $v01, $v07, $v07.q1;                lqv $v03.e0, 0x00,s0
-        vmadl $v02, $v08, $v08.q1;                lqv $v04.e0, 0x10,s0
+        vmadl $v02, $v08, $v08.q1;                llv $v04.e0, 0x10,s0
         vxor $v01, $v03.e1;`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "vxor");
-    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
-    assert.strictEqual(stalls[0].info.cycles, 2);
-    assert.strictEqual(stalls[0].info.reg, "$v01");
-    // TODO: report multiple registers at the same time
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vxor");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v01");
     assert.deepStrictEqual(
-      stalls[0].info.operand.range,
+      result.stalledStatements[0].info.operand.range,
       new vscode.Range(3, 13, 3, 17),
     );
   });
@@ -300,21 +360,50 @@ describe("getStalls", () => {
   it("should create correct stall with .eN syntax shorthand vector inst.'s second operand", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-        vmrg $v01, $v07, $v07.q1;                 lqv $v03.e0, 0x00,s0
-        vmadl $v02, $v08, $v08.q1;                lqv $v04.e0, 0x10,s0
+        vmrg $v01, $v07, $v07.q1;                 lbv $v03.e0, 0x00,s0
+        vmadl $v02, $v08, $v08.q1;                ldv $v04.e0, 0x10,s0
         vmacf $v10, $v03.e1;`,
     });
 
-    const stalls = await getStalls(document, grammar);
-    assert.strictEqual(stalls.length, 1);
-    assert.strictEqual(stalls[0].statement.op, "vmacf");
-    assert.strictEqual(stalls[0].info.reason, StallReason.WRITE_LATENCY);
-    assert.strictEqual(stalls[0].info.cycles, 2);
-    assert.strictEqual(stalls[0].info.reg, "$v03");
-    // TODO: report multiple registers at the same time
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vmacf");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v03");
     assert.deepStrictEqual(
-      stalls[0].info.operand.range,
+      result.stalledStatements[0].info.operand.range,
       new vscode.Range(3, 20, 3, 27),
+    );
+  });
+
+  it("should pick maximum stall cycles for a double stall condition", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        vmrg $v01, $v07, $v07.q1;                 lbv $v03.e0, 0x00,s0
+        vmadl $v02, $v08, $v08.q1;                ldv $v04.e0, 0x10,s0
+        sqv $v03, 0(s1); # HERE there are two stalls: one is for store after load, the other is for write latency`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "sqv");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v03");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(3, 12, 3, 16),
     );
   });
 });
