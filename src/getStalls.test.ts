@@ -328,6 +328,63 @@ describe("getStalls", () => {
     );
   });
 
+  it("should keep track of a current target's state while executing the last stall", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+      ${mixerDefines}
+
+      vmacf v_mix_r, v_sample_3, v_xvol_r_3;
+
+      vaddc v_out_l, v_mix_l, v_mix_l.q1;                lqv v_sample_0.e0, 0x00,s0
+      vaddc v_out_r, v_mix_r, v_mix_r.q1;                lqv v_sample_1.e0, 0x10,s0
+      vaddc v_out_l, v_out_l, v_out_l.h2;                lqv v_sample_2.e0, 0x20,s0
+      vaddc v_out_r, v_out_r, v_out_r.h2;                lqv v_sample_3.e0, 0x30,s0
+      vaddc v_out_l, v_out_l, v_out_l.e4;                bnez t0, Mix32Loop
+      vaddc v_out_r, v_out_r, v_out_r.e4;`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 13);
+
+    assert.strictEqual(result.stalledStatements.length, 3);
+
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vaddc");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v08");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(14, 21, 14, 28),
+    );
+
+    assert.strictEqual(result.stalledStatements[1].statement.op, "vaddc");
+    assert.strictEqual(
+      result.stalledStatements[1].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[1].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[1].info.reg, "$v02");
+    assert.deepStrictEqual(
+      result.stalledStatements[1].info.operand.range,
+      new vscode.Range(16, 21, 16, 28),
+    );
+
+    assert.strictEqual(result.stalledStatements[2].statement.op, "vaddc");
+    assert.strictEqual(
+      result.stalledStatements[2].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[2].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[2].info.reg, "$v02");
+    assert.deepStrictEqual(
+      result.stalledStatements[2].info.operand.range,
+      new vscode.Range(18, 21, 18, 28),
+    );
+  });
+
   it("should create correct stall with .eN syntax shorthand vector inst.", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `

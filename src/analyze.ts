@@ -216,21 +216,6 @@ export function analyze(
     }
   }
 
-  for (const potentialTargetRegs of targetRegs) {
-    for (const targetReg of potentialTargetRegs) {
-      let regName = targetReg.name;
-      let regMatch = status.regStatus.hasOwnProperty(regName);
-      if (!regMatch) {
-        regName = "$" + targetReg.name;
-        regMatch = status.regStatus.hasOwnProperty(regName);
-      }
-      const latency = getStallLatency(instruction.op);
-      if (regMatch) {
-        status.regStatus[regName as RegName] = latency;
-      }
-    }
-  }
-
   if (
     [...STORE_OPS, ...LOAD_STORE_OPS].includes(
       instruction.op as (typeof STORE_OPS)[number],
@@ -245,14 +230,6 @@ export function analyze(
         break;
       }
     }
-  }
-
-  if (
-    [...LOAD_OPS, ...LOAD_STORE_OPS].includes(
-      instruction.op as (typeof LOAD_OPS)[number],
-    )
-  ) {
-    status.loadInFlight.push(2);
   }
 
   if (!dualIssued) {
@@ -278,6 +255,31 @@ export function analyze(
   const stall = stalls[0];
 
   finalizeStall(status, stall?.cycles ?? 0);
+
+  // Now we can update the register status so that finalizing the stall doesn't
+  // interfere with the current instruction
+  for (const potentialTargetRegs of targetRegs) {
+    for (const targetReg of potentialTargetRegs) {
+      let regName = targetReg.name;
+      let regMatch = status.regStatus.hasOwnProperty(regName);
+      if (!regMatch) {
+        regName = "$" + targetReg.name;
+        regMatch = status.regStatus.hasOwnProperty(regName);
+      }
+      const latency = getStallLatency(instruction.op);
+      if (regMatch) {
+        status.regStatus[regName as RegName] = latency;
+      }
+    }
+  }
+
+  if (
+    [...LOAD_OPS, ...LOAD_STORE_OPS].includes(
+      instruction.op as (typeof LOAD_OPS)[number],
+    )
+  ) {
+    status.loadInFlight.push(2);
+  }
 
   status.prevToLastInstruction = status.lastInstruction;
   status.lastInstruction = instruction;
