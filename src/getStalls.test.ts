@@ -120,15 +120,15 @@ describe("analyzeStalls", () => {
   it("should create correct stall for a shorthand VU inst. reading a loaded value", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-        lpv $v00, 0(s0)      # Writes to $v00
-        vaddc $v00, $v01     # Reads from $v00 => STALL (3 cycles)`,
+        lpv $v00, 0(s0)       # Writes to $v00
+        vabs $v00, $v01       # Reads from $v00 => STALL (3 cycles)`,
     });
 
     const result = await analyzeStalls(document, grammar);
     assert.strictEqual(result.totalTicks, 5);
 
     assert.strictEqual(result.stalledStatements.length, 1);
-    assert.strictEqual(result.stalledStatements[0].statement.op, "vaddc");
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vabs");
     assert.strictEqual(
       result.stalledStatements[0].info.reason,
       StallReason.WRITE_LATENCY,
@@ -137,7 +137,7 @@ describe("analyzeStalls", () => {
     assert.strictEqual(result.stalledStatements[0].info.reg, "$v00");
     assert.deepStrictEqual(
       result.stalledStatements[0].info.operand.range,
-      new vscode.Range(2, 14, 2, 18),
+      new vscode.Range(2, 13, 2, 17),
     );
   });
 
@@ -261,33 +261,19 @@ describe("analyzeStalls", () => {
     );
   });
 
-  const mixerDefines = `
-    #define v_out_l       $v01
-    #define v_out_r       $v02
-    #define v_sample_0    $v03
-    #define v_sample_1    $v04
-    #define v_sample_2    $v05
-    #define v_sample_3    $v06
-    #define v_mix_l       $v07
-    #define v_mix_r       $v08`;
-
   it("should create 1 cycle stall for a dual issued assembly listing", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-      ${mixerDefines}
-
-      Mix32Loop:
-        # Mix all lanes together into the first lane       # Load next loop's samples
-        vaddc v_out_l, v_mix_l, v_mix_l.q1;                lqv v_sample_0.e0, 0x00,s0
-        vaddc v_out_r, v_mix_r, v_mix_r.q1;                lsv v_sample_1.e0, 0x10,s0
-        vaddc v_out_l, v_out_l, v_out_l.h2;                lqv v_sample_2.e0, 0x20,s0`,
+        vand $v01, $v07, $v07.q1;                 lqv $v03.e0, 0x00,s0
+        vch $v02, $v08, $v08.q1;                  lsv $v04.e0, 0x10,s0
+        vmacu $v01, $v01, $v01.h2;                lqv $v05.e0, 0x20,s0`,
     });
 
     const result = await analyzeStalls(document, grammar);
     assert.strictEqual(result.totalTicks, 5);
 
     assert.strictEqual(result.stalledStatements.length, 1);
-    assert.strictEqual(result.stalledStatements[0].statement.op, "vaddc");
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vmacu");
     assert.strictEqual(
       result.stalledStatements[0].info.reason,
       StallReason.WRITE_LATENCY,
@@ -296,26 +282,23 @@ describe("analyzeStalls", () => {
     assert.strictEqual(result.stalledStatements[0].info.reg, "$v01");
     assert.deepStrictEqual(
       result.stalledStatements[0].info.operand.range,
-      new vscode.Range(15, 23, 15, 30),
+      new vscode.Range(3, 20, 3, 24),
     );
   });
 
   it("should create 1 cycle stall without .eN syntax for 3 operand vector inst.", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-      ${mixerDefines}
-
-      Mix32Loop:
-        vaddc v_out_l, v_mix_l, v_mix_l.q1;                lpv v_sample_0.e0, 0x00,s0
-        vaddc v_out_r, v_mix_r, v_mix_r.q1;                luv v_sample_1.e0, 0x10,s0
-        vaddc v_out_l, v_out_l, 3;`,
+        vmudm $v01, $v07, $v07.q1;                lpv $v03.e0, 0x00,s0
+        vmulf $v02, $v08, $v07.q1;                luv $v04.e0, 0x10,s0
+        vmadm $v01, $v01, 3;`,
     });
 
     const result = await analyzeStalls(document, grammar);
     assert.strictEqual(result.totalTicks, 5);
 
     assert.strictEqual(result.stalledStatements.length, 1);
-    assert.strictEqual(result.stalledStatements[0].statement.op, "vaddc");
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vmadm");
     assert.strictEqual(
       result.stalledStatements[0].info.reason,
       StallReason.WRITE_LATENCY,
@@ -324,23 +307,20 @@ describe("analyzeStalls", () => {
     assert.strictEqual(result.stalledStatements[0].info.reg, "$v01");
     assert.deepStrictEqual(
       result.stalledStatements[0].info.operand.range,
-      new vscode.Range(14, 23, 14, 30),
+      new vscode.Range(3, 20, 3, 24),
     );
   });
 
   it("should keep track of a current target's state while executing the last stall", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-      ${mixerDefines}
-
-      vmacf v_mix_r, v_sample_3, v_xvol_r_3;
-
-      vaddc v_out_l, v_mix_l, v_mix_l.q1;                lqv v_sample_0.e0, 0x00,s0
-      vaddc v_out_r, v_mix_r, v_mix_r.q1;                lqv v_sample_1.e0, 0x10,s0
-      vaddc v_out_l, v_out_l, v_out_l.h2;                lqv v_sample_2.e0, 0x20,s0
-      vaddc v_out_r, v_out_r, v_out_r.h2;                lqv v_sample_3.e0, 0x30,s0
-      vaddc v_out_l, v_out_l, v_out_l.e4;                bnez t0, Mix32Loop
-      vaddc v_out_r, v_out_r, v_out_r.e4;`,
+      vmacf $v08, $v06, $v10;
+      vaddc $v01, $v07, $v07.q1;                lqv $v03.e0, 0x00,s0
+      vmulu $v02, $v08, $v08.q1;                lqv $v04.e0, 0x10,s0
+      vaddc $v01, $v01, $v01.h2;                lqv $v05.e0, 0x20,s0
+      vor $v02, $v02, $v02.h2;                  lqv $v06.e0, 0x30,s0
+      vaddc $v01, $v01, $v01.e4;                bnez t0, Label
+      vsubc $v02, $v02, $v02.e4;`,
     });
 
     const result = await analyzeStalls(document, grammar);
@@ -348,7 +328,7 @@ describe("analyzeStalls", () => {
 
     assert.strictEqual(result.stalledStatements.length, 3);
 
-    assert.strictEqual(result.stalledStatements[0].statement.op, "vaddc");
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vmulu");
     assert.strictEqual(
       result.stalledStatements[0].info.reason,
       StallReason.WRITE_LATENCY,
@@ -357,10 +337,10 @@ describe("analyzeStalls", () => {
     assert.strictEqual(result.stalledStatements[0].info.reg, "$v08");
     assert.deepStrictEqual(
       result.stalledStatements[0].info.operand.range,
-      new vscode.Range(14, 21, 14, 28),
+      new vscode.Range(3, 18, 3, 22),
     );
 
-    assert.strictEqual(result.stalledStatements[1].statement.op, "vaddc");
+    assert.strictEqual(result.stalledStatements[1].statement.op, "vor");
     assert.strictEqual(
       result.stalledStatements[1].info.reason,
       StallReason.WRITE_LATENCY,
@@ -369,10 +349,10 @@ describe("analyzeStalls", () => {
     assert.strictEqual(result.stalledStatements[1].info.reg, "$v02");
     assert.deepStrictEqual(
       result.stalledStatements[1].info.operand.range,
-      new vscode.Range(16, 21, 16, 28),
+      new vscode.Range(5, 16, 5, 20),
     );
 
-    assert.strictEqual(result.stalledStatements[2].statement.op, "vaddc");
+    assert.strictEqual(result.stalledStatements[2].statement.op, "vsubc");
     assert.strictEqual(
       result.stalledStatements[2].info.reason,
       StallReason.WRITE_LATENCY,
@@ -381,7 +361,7 @@ describe("analyzeStalls", () => {
     assert.strictEqual(result.stalledStatements[2].info.reg, "$v02");
     assert.deepStrictEqual(
       result.stalledStatements[2].info.operand.range,
-      new vscode.Range(18, 21, 18, 28),
+      new vscode.Range(7, 18, 7, 22),
     );
   });
 
@@ -460,115 +440,13 @@ describe("analyzeStalls", () => {
     );
   });
 
-  const triDefines = `
-    #define tricmd a0
-    #define vtx1   RDPQ_TRIANGLE_VTX1   // a1
-    #define vtx2   RDPQ_TRIANGLE_VTX2   // a2
-    #define vtx3   RDPQ_TRIANGLE_VTX3   // a3
-    #define cull   v0
-
-    #define vfinal_i         $v01
-    #define vfinal_f         $v02
-    #define vdx_i            $v03
-    #define vdx_f            $v04
-    #define vde_i            $v05
-    #define vde_f            $v06
-    #define vdy_i            $v07
-    #define vdy_f            $v08
-
-    #define vattr1           $v09
-    #define vattr2           $v10
-    #define vattr3           $v11
-    #define attr1_r     vattr1.e0
-    #define attr2_r     vattr2.e0
-    #define attr3_r     vattr3.e0
-    #define attr1_s     vattr1.e4
-    #define attr2_s     vattr2.e4
-    #define attr3_s     vattr3.e4
-    #define attr1_invw  vattr1.e6
-    #define attr2_invw  vattr2.e6
-    #define attr3_invw  vattr3.e6
-    #define attr1_z     vattr1.e7
-    #define attr2_z     vattr2.e7
-    #define attr3_z     vattr3.e7
-    #define vma              $v12
-    #define vha              $v13
-
-    #define vw_i             $v07
-    #define vw_f             $v08
-
-    #define vinvw_i          $v14
-    #define vinvw_f          $v15
-
-    #define vedges_i         $v16
-    #define vedges_f         $v17
-    #define vnz_i            $v18
-    #define vnz_f            $v19
-    #define vslope_i         $v20
-    #define vslope_f         $v21
-    #define vx12_i           $v22
-    #define vx12_f           $v23
-
-    #define vhml             $v24
-    #define vfy_i            $v25
-    #define vfy_f            $v26
-
-    #define vmconst          $v27
-    #define VKM1             vmconst.e7
-    #define VKM4             vmconst.e5
-
-    #define vtmp             $v28
-    #define v__              $v29
-    #define invn_i           $v31.e4
-    #define invn_f           $v31.e5
-    #define invsh_i          $v31.e6
-    #define invsh_f          $v31.e7
-
-
-    #define vall1    $v01
-    #define vall2    $v02
-    #define vall3    $v03
-    #define valltmp1 $v04
-    #define valltmp2 $v05
-    #define vy1      $v06
-    #define vy2      $v07
-    #define vy3      $v08
-    #define vytmp1   $v09
-    #define vytmp2   $v10
-
-    #define vm      valltmp2
-    #define vl      valltmp1
-    #define hx      vhml.e0
-    #define hy      vhml.e1
-    #define mx      vm.e0
-    #define my      vm.e1
-    #define lx      vl.e0
-    #define ly      vl.e1
-    #define vhmlupp vtmp
-
-    #define vk1     $v12
-
-    #define vstall
-    #define stall
-
-    #define clip1  t3
-    #define clip2  t4
-    #define clip3  t5
-    #define did_swap_0     t0
-    #define did_swap_1     t1
-    #define did_swap_2     t2`;
-
   it("should not dual issue with bnez", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-        ${triDefines}
-
-        or clip1, clip2;                            vlt vy1, vy1, vy2;                  
-        cfc2 did_swap_0, COP2_CTRL_VCC;             vmrg vall1, vall1, vall2;
-
-        andi t1, clip1, 0x3F00;                     vxor vhmlupp, vhmlupp
-
-        bnez t1, RDPQ_Triangle_Clip;                vge vytmp2, vy1, vy3;`,
+        or t3, t4;                          vlt $v06, $v06, $v07;
+        cfc2 t0, COP2_CTRL_VCC;             vmrg $v01, $v01, $v02;
+        andi t1, t3, 0x3F00;                vxor $v28, $v28
+        bnez t1, Label;                     vge $v10, $v06, $v08;`,
     });
 
     const result = await analyzeStalls(document, grammar);
@@ -580,16 +458,16 @@ describe("analyzeStalls", () => {
   it("should not dual issue in branch delay slot", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-        ${triDefines}
 
-        bnez t1, RDPQ_Triangle_Clip;                vge vytmp2, vy3, vy3;
-        andi clip1, 0xFF;                           vmrg valltmp2, vdall1, vall3;
-        andi t6, 0x38;                              vlt vy1, vy1, vy3;                  
-        cfc2 did_swap_1, COP2_CTRL_VCC;             vmrg vall1, vall1, vall3;           
 
-        xori clip1, 0xFF;                           vge vy3, vytmp1, vytmp2;            
-        or tricmd, t6;                              vmrg vall3, valltmp1, valltmp2;
-        ssv vy1.e0, 6,s3;                           vlt vy2, vytmp1, vytmp2;`,
+        bnez t1, Label;                 vge $v10, $v06, $v08;
+        andi t3, 0xFF;                  vmrg $v05, $v01, $v03;
+        andi t6, 0x38;                  vlt $v06, $v06, $v08;
+        cfc2 t1, COP2_CTRL_VCC;         vmrg $v01, $v01, $v03;
+
+        xori t3, 0xFF;                  vge $v08, $v09, $v10;
+        or a0, t6;                      vmrg $v03, $v04, $v10;
+        ssv $v06.e0, 6,s3;              vlt $v07, $v09, $v10;`,
     });
 
     const result = await analyzeStalls(document, grammar);
@@ -601,9 +479,9 @@ describe("analyzeStalls", () => {
   it("should catch a double stall", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
-        lw $v10, %lo(_) + 4
+        lw s0, %lo(_) + 4
         lw t1, %lo(_) + 0
-        sw $v10, %lo(_) + 0`,
+        sw s0, %lo(_) + 0`,
     });
 
     const result = await analyzeStalls(document, grammar);
@@ -617,10 +495,10 @@ describe("analyzeStalls", () => {
       StallReason.DOUBLE_STALL,
     );
     assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
-    assert.strictEqual(result.stalledStatements[0].info.reg, "$v10");
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$s0");
     assert.deepStrictEqual(
       result.stalledStatements[0].info.operand.range,
-      new vscode.Range(3, 11, 3, 15),
+      new vscode.Range(3, 11, 3, 13),
     );
   });
 
