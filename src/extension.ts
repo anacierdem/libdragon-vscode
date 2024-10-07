@@ -7,9 +7,14 @@ import * as vsctm from "vscode-textmate";
 import { parseLine } from "./parseLine";
 import {
   INITIAL_REG_STATUS as INITIAL_STATUS,
+  StallInfo,
   StallReason,
+  analyzeInstruction,
   analyze as analyzeStatement,
+  finalizeStall,
+  updateTargets,
 } from "./analyze";
+import { InstructionStatement } from "./types";
 
 // ts doesn't like the types if imported as a module
 // import * as oniguruma from "vscode-oniguruma";
@@ -33,7 +38,10 @@ export async function analyzeStalls(
   };
   let status = INITIAL_STATUS();
 
-  let stalledStatements = [];
+  let stalledStatements: {
+    statement: InstructionStatement;
+    info: StallInfo;
+  }[] = [];
 
   let ruleStack = vsctm.INITIAL;
   for (let lineIdx = 0; lineIdx < document.lineCount; lineIdx++) {
@@ -57,15 +65,33 @@ export async function analyzeStalls(
     }
 
     for (const statement of statements) {
-      const { status: newStatus, stalled } = analyzeStatement(
-        status,
-        statement,
-      );
+      // TODO: this whole block can be moved into analyzeStatement
+      const { status: newStatus, stall } = analyzeStatement(status, statement);
       status = newStatus;
 
-      if (stalled) {
-        stalledStatements.push({ statement, info: stalled });
+      if (stall) {
+        // It is possible that the previous stall to cause a new stall
+        // It should only be possible for WRITE_LATENCY into LOAD_AFTER_STORE
+        const newStall = analyzeInstruction(status, statement);
+        if (newStall && stall.reason === StallReason.WRITE_LATENCY) {
+          // Finalize the secondary stall
+          finalizeStall(status, newStall.cycles);
+          stalledStatements.push({
+            statement,
+            info: {
+              ...stall,
+              reason: StallReason.DOUBLE_STALL,
+              cycles: newStall.cycles + stall.cycles,
+            },
+          });
+        } else {
+          stalledStatements.push({ statement, info: stall });
+        }
       }
+
+      // Now we can update the register status so that finalizing the stall doesn't
+      // interfere with the current instruction
+      status = updateTargets(status, statement);
     }
   }
 
@@ -129,13 +155,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const grammar = await loadGrammar();
 
-  let activeEditor = vscode.window.activeTextEditor;
-  activeEditor && handleChange(activeEditor, grammar);
-
   let stallStatusBar = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100,
   );
+
+  let activeEditor = vscode.window.activeTextEditor;
+  activeEditor && handleChange(activeEditor, grammar);
+
   context.subscriptions.push(stallStatusBar);
 
   vscode.window.onDidChangeActiveTextEditor(
@@ -192,18 +219,25 @@ export async function activate(context: vscode.ExtensionContext) {
         message =
           "Pipeline stall: " +
           stall.info.cycles +
-          " cycle (reading from " +
+          " cycle (read from " +
           stall.info.operand?.name +
           ")";
       } else if (stall.info.reason === StallReason.STORE_AFTER_LOAD) {
         message = "Pipeline stall: store after load";
+      } else if (stall.info.reason === StallReason.DOUBLE_STALL) {
+        message =
+          "Double stall: " +
+          stall.info.cycles +
+          " cycle (read from " +
+          stall.info.operand?.name +
+          " into store after load)";
       }
       // TODO: add more information to the diagnostic
       diags.push(
         new vscode.Diagnostic(
-          stall.info.reason === StallReason.WRITE_LATENCY
-            ? stall.info.operand.range
-            : stall.statement.range,
+          stall.info.reason === StallReason.STORE_AFTER_LOAD
+            ? stall.statement.range
+            : stall.info.operand.range,
           message,
           vscode.DiagnosticSeverity.Warning,
         ),

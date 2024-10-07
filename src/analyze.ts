@@ -86,7 +86,13 @@ const defaultStatus = {
 
 type RegName = keyof (typeof defaultStatus)["regStatus"];
 
-type StallInfo =
+export type StallInfo =
+  | {
+      reason: typeof StallReason.DOUBLE_STALL;
+      reg: string;
+      cycles: number;
+      operand: Operand;
+    }
   | {
       reason: typeof StallReason.WRITE_LATENCY;
       reg: string;
@@ -101,6 +107,7 @@ type StallInfo =
 export const StallReason = {
   WRITE_LATENCY: "WRITE_LATENCY",
   STORE_AFTER_LOAD: "STORE_AFTER_LOAD",
+  DOUBLE_STALL: "DOUBLE_STALL",
 } as const;
 
 export const INITIAL_REG_STATUS = () => structuredClone(defaultStatus);
@@ -174,26 +181,19 @@ const isDualIssued = (
   );
 };
 
-const finalizeStall = (status: typeof defaultStatus, count: number) => {
+export const finalizeStall = (status: typeof defaultStatus, count: number) => {
   for (let i = 0; i < count; i++) {
     tick(status);
   }
+  return status;
 };
 
-export function analyze(
+export function analyzeInstruction(
   status: typeof defaultStatus,
   instruction: InstructionStatement,
 ) {
   let stalls: StallInfo[] = [];
 
-  const dualIssued = isDualIssued(status, instruction);
-
-  // Finalize the last instruction if it was dual-issued
-  if (!dualIssued) {
-    tick(status);
-  }
-
-  const targetRegs = getTargetRegs(instruction);
   const sourceRegs = getSourceRegs(instruction);
 
   for (const potentialSourceRegs of sourceRegs) {
@@ -232,6 +232,36 @@ export function analyze(
     }
   }
 
+  // find stall with max cycles
+  const { stall } = stalls.reduce<{
+    max: number;
+    stall: null | StallInfo;
+  }>(
+    (acc, curr) => {
+      if (curr.cycles > acc.max) {
+        return { max: curr.cycles, stall: curr };
+      }
+      return acc;
+    },
+    { max: 0, stall: null },
+  );
+
+  return stall;
+}
+
+export function analyze(
+  status: typeof defaultStatus,
+  instruction: InstructionStatement,
+) {
+  const dualIssued = isDualIssued(status, instruction);
+
+  // Finalize the last instruction if it was dual-issued
+  if (!dualIssued) {
+    tick(status);
+  }
+
+  const stall = analyzeInstruction(status, instruction);
+
   if (!dualIssued) {
     status.pairInstruction = instruction;
   } else {
@@ -240,24 +270,19 @@ export function analyze(
     status.pairInstruction = null;
   }
 
-  // find stall with max cycles, not necessary as we push the longest first
-  // Here for reference only.
-  // const { stall } = stalls.reduce<{ max: number; stall: null | StallInfo }>(
-  //   (acc, curr) => {
-  //     if (curr.cycles > acc.max) {
-  //       return { max: curr.cycles, stall: curr };
-  //     }
-  //     return acc;
-  //   },
-  //   { max: 0, stall: null },
-  // );
-
-  const stall = stalls[0];
-
   finalizeStall(status, stall?.cycles ?? 0);
 
-  // Now we can update the register status so that finalizing the stall doesn't
-  // interfere with the current instruction
+  status.prevToLastInstruction = status.lastInstruction;
+  status.lastInstruction = instruction;
+
+  return { stall, status };
+}
+
+export function updateTargets(
+  status: typeof defaultStatus,
+  instruction: InstructionStatement,
+) {
+  const targetRegs = getTargetRegs(instruction);
   for (const potentialTargetRegs of targetRegs) {
     for (const targetReg of potentialTargetRegs) {
       let regName = targetReg.name;
@@ -281,9 +306,5 @@ export function analyze(
     status.loadInFlight.push(2);
   }
 
-  status.prevToLastInstruction = status.lastInstruction;
-  status.lastInstruction = instruction;
-
-  // TODO: report secondary stalls as well
-  return { stalled: stall, status };
+  return status;
 }

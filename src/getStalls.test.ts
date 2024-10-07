@@ -5,7 +5,7 @@ import { analyzeStalls, loadGrammar } from "./extension";
 import { IGrammar } from "vscode-textmate";
 import { StallReason } from "./analyze";
 
-describe("getStalls", () => {
+describe("analyzeStalls", () => {
   let grammar: IGrammar;
 
   before(async () => {
@@ -596,5 +596,71 @@ describe("getStalls", () => {
     assert.strictEqual(result.totalTicks, 8);
 
     assert.strictEqual(result.stalledStatements.length, 0);
+  });
+
+  it("should catch a double stall", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        lw $v10, %lo(_) + 4
+        lw t1, %lo(_) + 0
+        sw $v10, %lo(_) + 0`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+
+    assert.strictEqual(result.stalledStatements.length, 1);
+
+    assert.strictEqual(result.stalledStatements[0].statement.op, "sw");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.DOUBLE_STALL,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v10");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(3, 11, 3, 15),
+    );
+  });
+
+  it("should force the pair into store after load", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        vsubc $v02, $v10, $v11
+        vsubc $v03, $v10, $v11
+        vnop
+        vnop;                       lw t1, 0(s0)
+        vlt $v02, $v02, $v03;
+                                    sw t0, 0(s0)`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 7);
+
+    assert.strictEqual(result.stalledStatements.length, 2);
+
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vlt");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 1);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v03");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(5, 24, 5, 28),
+    );
+
+    assert.strictEqual(result.stalledStatements[1].statement.op, "sw");
+    assert.strictEqual(
+      result.stalledStatements[1].info.reason,
+      StallReason.STORE_AFTER_LOAD,
+    );
+    assert.strictEqual(result.stalledStatements[1].info.cycles, 1);
+    assert.deepStrictEqual(
+      result.stalledStatements[1].statement.range,
+      new vscode.Range(6, 36, 6, 38),
+    );
   });
 });
