@@ -21,7 +21,7 @@
     "define": {
       "name": "meta.preprocessor.macro.c",
       "begin": "#\\s*define",
-      "end": "(?:$|;)",
+      "end": "$",
       "beginCaptures": {
         "0": {
           "name": "keyword.control.directive.define.c"
@@ -36,7 +36,7 @@
     "undef": {
       "name": "meta.preprocessor.macro.c",
       "begin": "#\\s*undef",
-      "end": "(?:$|;)",
+      "end": "$",
       "beginCaptures": {
         "0": {
           "name": "keyword.control.directive.undef.c"
