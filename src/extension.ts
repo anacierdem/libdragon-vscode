@@ -32,9 +32,9 @@ export async function analyzeStalls(
   document: vscode.TextDocument,
   grammar: vsctm.IGrammar,
 ) {
-  let currentDefines: Record<string, string> = {
+  let currentDefines: Record<string, string[]> = {
     // This is defined by convention in libdragon
-    ra2: "sp",
+    ra2: ["sp"],
   };
   let status = INITIAL_STATUS();
 

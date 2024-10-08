@@ -1,18 +1,38 @@
 import * as vscode from "vscode";
 
 import * as vsctm from "vscode-textmate";
-import { InstructionStatement } from "./types";
+import { InstructionStatement, Operand } from "./types";
 import { ALL_OPS } from "./regs";
 
 /**
  * This function processes a line of MIPS assembly code and returns relevant stuff found in it as a abstract syntax.
  */
 export function parseLine(
-  currentDefines: Record<string, string>,
+  currentDefines: Record<string, string[]>,
   lineIdx: number,
   line: string,
   tokens: vsctm.ITokenizeLineResult["tokens"],
-): { statements: InstructionStatement[]; defines: Record<string, string> } {
+): {
+  statements: InstructionStatement[];
+  defines: Record<string, string[]>;
+} {
+  function expandMacro(input: string) {
+    // Support .eN syntax
+    const nameParts = input.split(".");
+    let output: string[] = [];
+    for (let part of nameParts) {
+      if (currentDefines[part]) {
+        output = output.concat(currentDefines[part]);
+      }
+    }
+
+    if (output.length === 0) {
+      return { output: [nameParts[0]], isElement: nameParts.length > 1 };
+    }
+
+    return { output, isElement: nameParts.length > 1 };
+  }
+
   // TODO: keep state across labels
 
   let statements: InstructionStatement[] = [];
@@ -33,22 +53,30 @@ export function parseLine(
       const alias = line.substring(token.startIndex, token.endIndex);
       token = tokens[tokenIdx++];
 
+      const replacementVariables: string[] = [];
       // Find the replacement, multiple values are not supported only
       // the first one will be effective. e.g for `#define foo t1*a0
       // foo will be replaced with t1
-      while (token && !token.scopes.includes("support.variable")) {
+      while (token) {
+        if (token.scopes.includes("support.variable")) {
+          replacementVariables.push(
+            line.substring(token.startIndex, token.endIndex),
+          );
+        }
         token = tokens[tokenIdx++];
       }
 
-      if (!token) {
+      // TODO: discard parametric defines
+
+      if (replacementVariables.length === 0) {
         // No replacement found for define
         continue;
       }
 
-      const replacement = line.substring(token.startIndex, token.endIndex);
-
       // TODO: handle multi-line defines
-      currentDefines[alias] = replacement;
+      currentDefines[alias] = replacementVariables.flatMap(
+        (t) => expandMacro(t).output,
+      );
       token = tokens[tokenIdx++];
       continue;
     }
@@ -97,25 +125,24 @@ export function parseLine(
 
     while (token && !token.scopes.includes("punctuation.terminator")) {
       if (token.scopes.includes("support.variable")) {
-        // Support .eN syntax
-        const nameParts = line
-          .substring(token.startIndex, token.endIndex)
-          .split(".");
-        const name = nameParts[0];
-        // TODO: replace all instead
-        const replacedName = currentDefines[name] ?? name;
-        currentInstruction.operands[
-          currentInstruction.operands.length - 1
-        ].push({
-          name: replacedName,
+        const { output, isElement } = expandMacro(
+          line.substring(token.startIndex, token.endIndex),
+        );
+
+        const expandedOperands = output.map((name) => ({
+          name,
           range: new vscode.Range(
             lineIdx,
             token.startIndex,
             lineIdx,
             token.endIndex,
           ),
-          isElement: nameParts.length > 1,
-        });
+          isElement: isElement,
+        }));
+
+        currentInstruction.operands[currentInstruction.operands.length - 1] =
+          expandedOperands;
+
         token = tokens[tokenIdx++];
         continue;
       }

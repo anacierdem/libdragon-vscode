@@ -159,7 +159,10 @@ const isDualIssued = (
   // Since we are discussing vector registers here, this applies when the SU
   // instruction is one of the few that access vector registers (that is, vector
   // loads, mfc2, mtc2).
-  // TODO: Hidden reg read/writes should also be included here
+
+  // TODO: Similarly, CFC2/CTC2 (SU instructions) can prevent dual-issue if they
+  // access a control register that is read/written by the instruction they
+  // dual-issue with
   const readOrWritten = [
     ...getTargetRegs(statement),
     ...getSourceRegs(statement),

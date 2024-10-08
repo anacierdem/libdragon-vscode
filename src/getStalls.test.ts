@@ -541,4 +541,151 @@ describe("analyzeStalls", () => {
       new vscode.Range(6, 36, 6, 38),
     );
   });
+
+  it("should detect stall with basic renaming", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        #define vector_2 $v02
+        #define _vector_2 $v02
+        vsubc _vector_2, $v10, $v11
+        vnand vector_2, vector_2, $v12`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vnand");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 3);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v02");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(4, 24, 4, 32),
+    );
+  });
+
+  it("should detect stall with rename & direct vector naming", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        #define vector_3 $v03
+        vsubc $v03, $v10, $v11
+        vnand $v15, vector_3, $v12`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vnand");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 3);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v03");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(3, 20, 3, 28),
+    );
+  });
+
+  it("should detect stall with rename & .eN syntax", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        #define vector_3 $v03
+        vsubc $v03.e1, $v10, $v11
+        vnand $v15, vector_3.e4, $v12`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vnand");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 3);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v03");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(3, 20, 3, 31),
+    );
+  });
+
+  it.skip("should detect stall with .eN syntax rename", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        #define vector_3 $v03.e4
+        vsubc $v03.e1, $v10, $v11
+        vnand $v15, vector_3, $v12`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vnand");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 3);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v03");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(3, 20, 3, 31),
+    );
+  });
+
+  it("should detect stall double rename", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        #define vector_3 $v03
+        #define v_3 vector_3
+        #define _v_3 vector_3
+        vsubc v_3, $v10, $v11
+        vnand $v15, _v_3, $v12`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vnand");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 3);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v03");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(5, 20, 5, 24),
+    );
+  });
+
+  it("should detect rename with a more complex expression", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        #define vector_3 0($v03)
+        vsubc vector_3, $v10, $v11
+        vnand $v15, $v03, $v12`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vnand");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 3);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v03");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(3, 20, 3, 24),
+    );
+  });
 });
