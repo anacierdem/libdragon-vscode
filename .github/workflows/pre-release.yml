@@ -1,11 +1,10 @@
-name: Build and release
+name: Build and pre-release
 on:
   push:
     branches:
       - master
     tags:
-      - "release/*"
-
+      - "pre-release/*"
 jobs:
   run-tests:
     name: Run Tests
@@ -43,4 +42,4 @@ jobs:
         with:
           pat: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
           registryUrl: https://marketplace.visualstudio.com
-          preRelease: false
+          preRelease: true

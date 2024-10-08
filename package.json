@@ -2,7 +2,7 @@
   "name": "libdragon-vscode",
   "displayName": "Libdragon",
   "description": "Libdragon tools for a better development experience.",
-  "version": "0.0.17",
+  "version": "0.1.0",
   "publisher": "lici",
   "icon": "logo.png",
   "engines": {
@@ -61,8 +61,6 @@
     ]
   },
   "devDependencies": {
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
     "@types/js-yaml": "^4.0.5",
     "@types/vscode": "^1.81.0",
     "@vscode/test-cli": "^0.0.10",
@@ -71,8 +69,6 @@
     "cz-conventional-changelog": "^3.3.0",
     "js-yaml": "^4.1.0",
     "prettier": "3.0.3",
-    "semantic-release": "^23.0.2",
-    "semantic-release-vsce": "^5.6.4",
     "ts-node": "^10.9.1",
     "typescript": "^5.2.2"
   },
@@ -84,31 +80,5 @@
     "commitizen": {
       "path": "./node_modules/cz-conventional-changelog"
     }
-  },
-  "release": {
-    "plugins": [
-      "@semantic-release/commit-analyzer",
-      "@semantic-release/release-notes-generator",
-      "@semantic-release/changelog",
-      [
-        "semantic-release-vsce",
-        {
-          "packageVsix": true,
-          "publish": false
-        }
-      ],
-      [
-        "@semantic-release/github",
-        {
-          "assets": [
-            {
-              "path": "*.vsix",
-              "label": "vscode extension"
-            }
-          ]
-        }
-      ],
-      "@semantic-release/git"
-    ]
   }
 }
