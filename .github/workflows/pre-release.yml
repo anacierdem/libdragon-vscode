@@ -1,8 +1,6 @@
 name: Build and pre-release
 on:
   push:
-    branches:
-      - master
     tags:
       - "pre-release/*"
 jobs:
