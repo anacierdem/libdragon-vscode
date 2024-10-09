@@ -2,7 +2,7 @@
   "name": "libdragon-vscode",
   "displayName": "Libdragon",
   "description": "Libdragon tools for a better development experience.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "lici",
   "icon": "logo.png",
   "engines": {
@@ -20,6 +20,10 @@
     "Programming Languages"
   ],
   "main": "./out/src/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anacierdem/libdragon-vscode.git"
+  },
   "contributes": {
     "languages": [
       {
