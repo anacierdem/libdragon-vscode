@@ -615,7 +615,7 @@ describe("analyzeStalls", () => {
     );
   });
 
-  it.skip("should detect stall with .eN syntax rename", async () => {
+  it("should detect stall with .eN syntax rename", async () => {
     const document = await vscode.workspace.openTextDocument({
       content: `
         #define vector_3 $v03.e4
@@ -635,7 +635,7 @@ describe("analyzeStalls", () => {
     assert.strictEqual(result.stalledStatements[0].info.reg, "$v03");
     assert.deepStrictEqual(
       result.stalledStatements[0].info.operand.range,
-      new vscode.Range(3, 20, 3, 31),
+      new vscode.Range(3, 20, 3, 28),
     );
   });
 
