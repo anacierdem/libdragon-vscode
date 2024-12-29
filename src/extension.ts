@@ -204,7 +204,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
     stallStatusBar.text =
       editor.document.languageId === "mips.rsp"
-        ? `${result.totalTicks} total cycles, ${result.stalledStatements.length} stalled`
+        ? // TODO: this is showing the number of stall causing instructions, not the number of stalls
+          `${result.totalTicks} total cycles, ${result.stalledStatements.length} stall`
         : `${result.totalTicks} total cycles`;
 
     if (editor.document.languageId !== "mips.rsp") {

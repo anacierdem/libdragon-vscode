@@ -688,4 +688,29 @@ describe("analyzeStalls", () => {
       new vscode.Range(3, 20, 3, 24),
     );
   });
+
+  // From https://discord.com/channels/205520502922543113/974342113850445874/1300957751589212372
+  // 2 argument insts. was not counting second argument as a source
+  it("should detect a stall with cfc2 & xor", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        cfc2 t1, COP2_CTRL_VCC;  vmrg $v05, $v06, $v07;
+        xor t0, t1;`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 4);
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "xor");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 2);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$t1");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(2, 16, 2, 18),
+    );
+  });
 });

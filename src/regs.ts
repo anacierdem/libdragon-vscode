@@ -153,7 +153,7 @@ export function getSourceRegs(statement: InstructionStatement) {
     ].includes(statement.op)
   ) {
     if (statement.operands.length === 2) {
-      return [statement.operands[0]];
+      return [statement.operands[0], statement.operands[1]];
     }
   }
 
