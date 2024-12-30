@@ -713,4 +713,30 @@ describe("analyzeStalls", () => {
       new vscode.Range(2, 16, 2, 18),
     );
   });
+
+  // From https://discord.com/channels/205520502922543113/974342113850445874/1302416846967803995
+  // 3 argument vector insts. wasn't handling arguments properly
+  it("should detect a stall with element syntax in last position", async () => {
+    const document = await vscode.workspace.openTextDocument({
+      content: `
+        #define vstate0 $v0
+        vmadh vstate0, vstate0, vshift.e2
+        vmudh v____, pred0, vstate0.e6`,
+    });
+
+    const result = await analyzeStalls(document, grammar);
+    assert.strictEqual(result.totalTicks, 5);
+    assert.strictEqual(result.stalledStatements.length, 1);
+    assert.strictEqual(result.stalledStatements[0].statement.op, "vmudh");
+    assert.strictEqual(
+      result.stalledStatements[0].info.reason,
+      StallReason.WRITE_LATENCY,
+    );
+    assert.strictEqual(result.stalledStatements[0].info.cycles, 3);
+    assert.strictEqual(result.stalledStatements[0].info.reg, "$v0");
+    assert.deepStrictEqual(
+      result.stalledStatements[0].info.operand.range,
+      new vscode.Range(3, 28, 3, 38),
+    );
+  });
 });
