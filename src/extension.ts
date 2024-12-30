@@ -196,16 +196,22 @@ export async function activate(context: vscode.ExtensionContext) {
       editor.document.languageId !== "mips"
     ) {
       stallStatusBar.hide();
+      return;
     }
     stallStatusBar.show();
 
     // TODO: stream these instead
     const result = await analyzeStalls(editor.document, grammar);
 
+    const stalledCycles = result.stalledStatements.reduce((acc, curr) => {
+      return acc + curr.info.cycles;
+    }, 0);
+
     stallStatusBar.text =
-      editor.document.languageId === "mips.rsp"
-        ? // TODO: this is showing the number of stall causing instructions, not the number of stalls
-          `${result.totalTicks} total cycles, ${result.stalledStatements.length} stall`
+      editor.document.languageId === "mips.rsp" && stalledCycles > 0
+        ? `${result.totalTicks} total cycles / ${stalledCycles} stalled (${
+            result.stalledStatements.length
+          } location${result.stalledStatements.length > 1 ? "s" : ""})`
         : `${result.totalTicks} total cycles`;
 
     if (editor.document.languageId !== "mips.rsp") {
