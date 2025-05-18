@@ -23,7 +23,6 @@ in your command line, assuming vscode is installed and registered in your path.
 
 # TODO:
 
-- [ ] RSPL support.
 - [ ] Status bar should show counts for the selection/the function that the cursor is in.
 - [ ] Implement preview for libdragon sprites
 - [ ] Add more descriptive highlighting for known as directives
